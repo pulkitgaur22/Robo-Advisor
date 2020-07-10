@@ -1,5 +1,6 @@
 # Robo-Advisor
 For Risk Management Lab at MMF program at the UofT
 
-Install QuantStats, YFinance
-!pip install quantstats
+From inside the virtual environment, install package dependencies:
+
+```!pip install [name of package]```
