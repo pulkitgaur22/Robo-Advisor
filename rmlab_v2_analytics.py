@@ -5,6 +5,9 @@
 
 '''
 
+def goodPrint(df):
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+        print (df)
 ########################################################################
 
 ## Import Statements, please install hmmlearn & quantstats
@@ -32,7 +35,7 @@ import utilityFuncs
 #######################################################################
 
 """## Data Pre Processing"""
-stocks = ["USO","SPY","GLD","VWO","IEF","EMB","lqd","VNQ","MNA","CAD=X","^IRX"]
+stocks = ["SCO","SPY","GLD","VWO","IEF","EMB","lqd","VNQ","MNA","CAD=X","^IRX"]
 #oil,sp500,gold,emerging_eq,us_7_10year_bonds,emerging bonds, hy_coroprate, reit etf, Hedge Fund, risk_free (13-week treasury bond), CAD
 start = datetime(2010,1,1)
 end = datetime(2020,6,1)
@@ -326,5 +329,37 @@ plt.plot(100*dataNamed.loc["2015-04-01":"2020-06-01"].SPX/dataNamed.loc["2015-04
 plt.legend()
 plt.show()
 
+##############################################################
 
+#Attribution
+
+
+selectedIndex=1000
+
+print ("Portfolio Value : ", round(portfolioValue["Value"].iloc[selectedIndex]))
+
+nvEquity=portfolioValue[tickerEquity].iloc[selectedIndex]
+tickerEqNames=["Consumer Discretionary", "Industrial", "Financial", "Health Care","Technology","Consumer Staples"]
+nvEquity.index=tickerEqNames
+print ("Equity Exposure : ",sum(round(nvEquity)))
+goodPrint(round(nvEquity).to_string())
+
+nvCredit=portfolioValue[tickerCredit].iloc[selectedIndex]
+tickerCreditNames= [ "Emerging Markets", "High Yield", "Investment Grade", "Mortgage Backed Securities"]
+nvCredit.index=tickerCreditNames
+print ("Credit Exposure : ",sum(round(nvCredit)))
+goodPrint(round(nvCredit).to_string())
+
+
+nvHF=portfolioValue[tickerHedge].iloc[selectedIndex]
+print ("Hedge Fund Exposure : ",sum(nvHF))
+nvPE=portfolioValue[tickerPE].iloc[selectedIndex]
+print ("Private Equity Exposure : ",sum(nvPE))
+nvAlts=portfolioValue[tickerAlternative].iloc[selectedIndex]
+print ("Merger Arb. Exposure : ",sum(nvAlts))
+
+
+#Return Attribution
+
+#Risk Attribution
 
