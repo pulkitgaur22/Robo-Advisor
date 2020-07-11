@@ -61,47 +61,54 @@ rtnNamed=dataNamed.pct_change().dropna()
 #######################################################################
 
 #Portfolio Construction
-
-
 tickerEquity=['XLY','XLI','XLF','XLV','XLK','XLP']
-# Consumer Discritionary, Industrial, Financial, Health Care,Technology, Consumer Staples
+tickerEqNamesUS=["Consumer Discretionary", "Industrial", "Financial", "Health Care","Technology","Consumer Staples"]
+
 tickerEquityCAD=['XMD.TO','XFN.TO','ZUH.TO','XIT.TO','ZDJ.TO']
-# Mid/Small, Financial, Health Care, Information Technology, DJI
+tickerEqNamesCAD=["Mid_Small", "Financial", "Health Care", "Information Technology", "DJI"]
 
 tickerCredit=["EMB","HYG",'LQD','MBB']
-# EMD, HY, IG, MBS
+tickerCreditNamesUSD= [ "Emerging Markets", "High Yield", "Investment Grade", "Mortgage Backed Securities"]
 tickerCreditCAD=['ZEF.TO','XHY.TO','ZCS.TO','XQB.TO']
-# EMD, HY, Corp Bond, IG
+tickerCreditNamesCAD= [ "Emerging Markets", "High Yield", "Corporate Bonds","Investment Grade"]
 
 tickerHedge=['IEF']
+tickerHNamesUSD=["US_Treasury"]
 tickerHedgeCAD=['CGL.TO']
+tickerHNamesCAD=["Gold_CAD"]
 
-tickerPE=['PSP','IGF','VNQ','MNA']
-# PE, Infra, REITs, HF
-tickerPECAD=['CGR.TO','CIF.TO']
-# REITs, Hedge fund HHF not long enough, Infra
+tickerAlts=['PSP','IGF','VNQ','MNA']
+tickerAltsNamesUSD=["PE", "Infra", "REITs", "HF"]
+tickerAltsCAD=['CGR.TO','CIF.TO']
+tickerAltsNamesCAD=["REITs", "Infra"]
 
-#tickerBM=['SPY','HYG']
-#stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+tickerAlternative+["SPY","CAD=X","^IRX"]
-stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+["SPY","CAD=X","^IRX"]
-stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerPECAD+tickerHedgeCAD+["SPY","CAD=X","^IRX"]
+stocks = tickerEquity+tickerCredit+tickerAlts+tickerHedge+["SPY","CAD=X","^IRX"]
+stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerAltsCAD+tickerHedgeCAD+["SPY","CAD=X","^IRX"]
 
 start = datetime(2010,1,1)
 end = datetime(2020,6,1)
 
 price,rtn=utilityFuncs.pull_data(stocks)
 priceCAD,rtnCAD=utilityFuncs.pull_data(stocksCAD)
+commonDate=[i for i in price.index if i in priceCAD.index]
+priceMerged=pd.concat([price.loc[commonDate],priceCAD.loc[commonDate]],axis=1)
 
-rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerPE)
-#Results for NYSE
-rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerPECAD)
-#Results for TSX
+priceHedge= pdr.get_data_yahoo(tickerHedge+tickerHedgeCAD, start=start, end=end)["Adj Close"]
+priceHedge= priceHedge.ffill(axis=0).dropna()
 
-mutualDate=[i for i in wTotal.index if i in wTotalCAD.index]
+if 'weights.pkl' in os.listdir(os.getcwd()+'\\Data'):
+    weightMerged=pd.read_pickle('Data\\weights.pkl')
+else:
+    rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerAlts)
+    #Results for NYSE
+    rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerAltsCAD)
+    #Results for TSX
+    
+    mutualDate=[i for i in wTotal.index if i in wTotalCAD.index]
+    
 
-
-weightMerged=pd.concat([wTotal.loc[mutualDate]/2,wTotalCAD.loc[mutualDate]/2],axis=1)
-weightMerged.to_pickle('weights.pkl')
+    weightMerged=pd.concat([wTotal.loc[mutualDate]/2,wTotalCAD.loc[mutualDate]/2],axis=1)
+    weightMerged.to_pickle('weights.pkl')
 
 
 ######################################################################
@@ -149,13 +156,15 @@ else:
     signalSeries.to_pickle('Data\\Signal.pkl')
     
     
-"""
+
 #######################################################################
 
 #Rebalancing and Portfolio Allocation
 myMask=[]
 temp=[]
 x=2015
+weightsAll=weightMerged
+
 
 for i in range(6):
   temp.append(date(x+i,4,1))
@@ -194,15 +203,20 @@ for i in list(weightsAll.index):
 
 #This dataframe contains all the portfolio weights
 ERCWeight=weightsAll.loc[myMask]
+start = datetime(2015,4,1)
+end = datetime(2020,6,1)
+fx = pdr.get_data_yahoo("CAD=X", start=start, end=end)
+fxData = fx["Adj Close"]
+oRates=pd.read_csv("Data/canadaOvernight.csv",index_col=0,parse_dates=True).sort_index()
 
-#Performance Analysis
-start=100000
-portfolioValue=price.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
+#Performance Analysis for Main Portfolio
+start=90000
+portfolioValue=priceMerged.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
 portfolioValue= (portfolioValue[ERCWeight.columns])
-price=price[ERCWeight.columns].dropna()
+price=priceMerged[ERCWeight.columns].dropna()
 price=price.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
 investment=[]
-
+cash=[]
 
 for i in range(len(ERCWeight)):
   rebalanceDate=ERCWeight.index[i]
@@ -216,16 +230,79 @@ for i in range(len(ERCWeight)):
   rebalanceDate=relevantData.index[0]
   endDate=relevantData.index[-1]
   moneyAllocated=start*ERCWeight.iloc[i]
-  noofUnits=moneyAllocated.divide(price.loc[rebalanceDate])
+  
+  try:
+      fxConvert=fxData.loc[rebalanceDate]
+  except:
+      fxConvert=fxData.loc[rebalanceDate.date()-timedelta(days=1)]
+      
+  usTickers=[i for i in list(price.columns) if (i[-2:] != "TO")]
+  priceinCAD=price.copy().loc[rebalanceDate]
+  priceinCAD[[i for i in list(price.columns) if (i[-2:] != "TO")]]*=fxConvert
+
+  noofUnits=moneyAllocated.divide(priceinCAD)
 
   portfolioValue[rebalanceDate:endDate]=portfolioValue[rebalanceDate:endDate]*list(noofUnits)
   investment.extend([100000+(i*10000)]*len(portfolioValue[rebalanceDate:endDate]))
+  cash.extend([10000+(i*1000)]*len(portfolioValue[rebalanceDate:endDate]))
   endvalue=portfolioValue.loc[endDate].sum()
-  start=10000+endvalue
+  start=9000+endvalue
 
 
-portfolioValue["Value"]=portfolioValue.sum(axis=1)
+portfolioValue["Cash"]=cash
 portfolioValue["Principal"]=investment
+
+#Regime Strategy
+
+trades=signalSeries.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
+moneyAccount=portfolioValue.Cash.copy()
+openPos=0
+mmAC=[]
+gold=[]
+usTreasury=[]
+for i in range(len(moneyAccount)):
+    try:
+        
+        currentIndex=moneyAccount.index[i]
+        currentValue=moneyAccount.iloc[i]
+        
+        if trades[currentIndex] == 1 and openPos==0:
+            
+            buyPrice=priceHedge.loc[(currentIndex.date())]
+            openPos=1
+            try:
+                fxConvert=fxData.loc[currentIndex.date()]
+            except:
+                fxConvert=fxData.loc[currentIndex.date()-timedelta(days=1)]
+            
+            
+            
+            
+        elif trades[moneyAccount.index[i]] == -1 and openPos==1:
+            
+            sellPrice=priceHedge.loc[(currentIndex.date())]
+            openPos=0
+            print ((sellPrice.divide(buyPrice))-1)
+            
+        elif trades[currentIndex] == 0 and openPos==1:
+            
+            #Keep Holding
+            print ()
+            
+        elif trades[currentIndex] == 0 and openPos==0:
+            
+            #MoneyMarketAccount
+            interestRate=oRates[currentIndex.date()]
+            
+            
+        
+    except:
+        if openPos==0:
+            pass
+            
+
+
+
 
 
 rebalancing = portfolioValue[~portfolioValue['Principal'].diff().isin([0])].index
@@ -254,7 +331,7 @@ plt.plot(portfolioValue[ERCWeight.columns])
 plt.legend(labels=labels)
 
 #######################################################################
-
+'''
 #Risk Models
 
 df = pd.read_csv("Data/MacroData.csv", index_col='DATE')
@@ -298,69 +375,6 @@ model.summary()
 
 #######################################################################
 
-
-#Regime Detection and Overlay strategy
-
-dataHMM=pd.read_csv('Data/HMM_data.csv',index_col=0,parse_dates=True)
-#VIX, FX Vol, IR Vol, Term Premium, Credit Spread, TED Spread
-start = datetime(2008,1,1)
-end = datetime(2020,5,31)
-
-term_premium = pdr.get_data_yahoo(['^TYX','^IRX'], start=start, end=end)
-term_premium = term_premium["Adj Close"]
-term_premium = term_premium['^TYX']-term_premium['^IRX']
-
-dataHMM=dataHMM.loc[term_premium.index]
-dataHMM.iloc[:,-1]=term_premium.values
-
-dataInput=dataHMM
-dataInput_m=dataInput.resample('m').last()
-dataNormed1=  regimeDetection.percentile_data(dataInput,1)
-
-EMIndex1=(dataNormed1*[0.2,0.2,0.2,0.2,0.15,0.05]).sum(axis=1)# 1-year version
-
-model=hmm.GMMHMM(n_components=3, covariance_type="full",random_state= 0)
-
-newStates1=[]
-for i in tqdm(range(251,EMIndex1.size+1)):
-    dataHMMTemp=EMIndex1.iloc[:i].values.reshape(-1,1)
-    states=regimeDetection.fix_states(model.fit(dataHMMTemp).predict(dataHMMTemp),EMIndex1.iloc[:i].values)
-    newStates1.append(states[-1])
-
-dataHMMInit1=EMIndex1.iloc[:250].values.reshape(-1,1)
-modelInit1=model.fit(dataHMMInit1)
-stateInit1=regimeDetection.fix_states(modelInit1.predict(dataHMMInit1),dataHMMInit1)
-updatedStates1=pd.Series(list(stateInit1)+newStates1,index=EMIndex1.index)
-
-rtnEquity=np.exp(price.iloc[:,:3]).diff()
-
-idxValid1=[i for i in EMIndex1.index if i in rtnEquity.index]
-rtnEquity=rtnEquity.loc[idxValid1]
-rtnEquity['Risk_index']=EMIndex1.loc[rtnEquity.index]
-rtnEquity['State']=updatedStates1.loc[rtnEquity.index]
-rtnEquity['State_all_period']=0
-
-hmmRiskData=rtnEquity.loc["2015-04-01":"2020-06-01"]
-plt.figure(figsize=(15,8))
-for i in range(len(hmmRiskData)):
-    if (hmmRiskData.iloc[i].State) == 0 :
-        plt.axvline(x=hmmRiskData.index[i],color='limegreen')
-    elif (hmmRiskData.iloc[i].State) == 1:
-        plt.axvline(x=hmmRiskData.index[i],color='khaki')
-    else:
-        plt.axvline(x=hmmRiskData.index[i],color='tomato')
-
-
-plt.plot(100*dataNamed.loc["2015-04-01":"2020-06-01"].Gold/dataNamed.loc["2015-04-01"].Gold, color='blue',label="Gold")
-plt.plot(100*dataNamed.loc["2015-04-01":"2020-06-01"].Oil/dataNamed.loc["2015-04-01"].Oil, color='brown',label="Oil")
-plt.plot(100*dataNamed.loc["2015-04-01":"2020-06-01"]["US Bond"]/dataNamed.loc["2015-04-01"]["US Bond"], color='pink',label="Bond")
-plt.plot(100*dataNamed.loc["2015-04-01":"2020-06-01"].SPX/dataNamed.loc["2015-04-01"].SPX, color='black',label="SP500")
-
-plt.legend()
-plt.show()
-
-##############################################################
-
 #Attribution
 
 
@@ -387,10 +401,9 @@ nvPE=portfolioValue[tickerPE].iloc[selectedIndex]
 print ("Private Equity Exposure : ",sum(nvPE))
 nvAlts=portfolioValue[tickerAlternative].iloc[selectedIndex]
 print ("Merger Arb. Exposure : ",sum(nvAlts))
-
+'''
 
 #Return Attribution
 
 #Risk Attribution
 
-"""
