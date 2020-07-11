@@ -93,6 +93,8 @@ priceCAD,rtnCAD=utilityFuncs.pull_data(stocksCAD)
 commonDate=[i for i in price.index if i in priceCAD.index]
 priceMerged=pd.concat([price.loc[commonDate],priceCAD.loc[commonDate]],axis=1)
 
+start = datetime(2015,4,1)
+end = datetime(2020,6,1)
 priceHedge= pdr.get_data_yahoo(tickerHedge+tickerHedgeCAD, start=start, end=end)["Adj Close"]
 priceHedge= priceHedge.ffill(axis=0).dropna()
 
@@ -229,6 +231,7 @@ for i in range(len(ERCWeight)):
   relevantData=portfolioValue[rebalanceDate:endDate]
   rebalanceDate=relevantData.index[0]
   endDate=relevantData.index[-1]
+  
   moneyAllocated=start*ERCWeight.iloc[i]
   
   try:
@@ -236,70 +239,157 @@ for i in range(len(ERCWeight)):
   except:
       fxConvert=fxData.loc[rebalanceDate.date()-timedelta(days=1)]
       
+      
   usTickers=[i for i in list(price.columns) if (i[-2:] != "TO")]
   priceinCAD=price.copy().loc[rebalanceDate]
-  priceinCAD[[i for i in list(price.columns) if (i[-2:] != "TO")]]*=fxConvert
+  priceinCAD[usTickers]*=fxConvert
 
   noofUnits=moneyAllocated.divide(priceinCAD)
-
+  
+  
   portfolioValue[rebalanceDate:endDate]=portfolioValue[rebalanceDate:endDate]*list(noofUnits)
   investment.extend([100000+(i*10000)]*len(portfolioValue[rebalanceDate:endDate]))
   cash.extend([10000+(i*1000)]*len(portfolioValue[rebalanceDate:endDate]))
-  endvalue=portfolioValue.loc[endDate].sum()
+  
+  
+  priceinCAD=portfolioValue.copy().loc[endDate]
+  
+  try:
+      fxConvert=fxData.loc[endDate]
+  except:
+      fxConvert=fxData.loc[endDate.date()-timedelta(days=1)]
+  
+  
+  priceinCAD[usTickers]*=fxConvert
+  
+  endvalue=priceinCAD.sum()
+
   start=9000+endvalue
 
 
+
+
 portfolioValue["Cash"]=cash
-portfolioValue["Principal"]=investment
+
 
 #Regime Strategy
 
 trades=signalSeries.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
 moneyAccount=portfolioValue.Cash.copy()
 openPos=0
-mmAC=[]
-gold=[]
-usTreasury=[]
+regimeDates=[]
+
 for i in range(len(moneyAccount)):
     try:
-        
-        currentIndex=moneyAccount.index[i]
-        currentValue=moneyAccount.iloc[i]
-        
+        currentIndex=moneyAccount.index[i]        
         if trades[currentIndex] == 1 and openPos==0:
-            
+            buyIndex=currentIndex
             buyPrice=priceHedge.loc[(currentIndex.date())]
             openPos=1
-            try:
-                fxConvert=fxData.loc[currentIndex.date()]
-            except:
-                fxConvert=fxData.loc[currentIndex.date()-timedelta(days=1)]
-            
-            
-            
-            
+
         elif trades[moneyAccount.index[i]] == -1 and openPos==1:
-            
             sellPrice=priceHedge.loc[(currentIndex.date())]
             openPos=0
-            print ((sellPrice.divide(buyPrice))-1)
-            
-        elif trades[currentIndex] == 0 and openPos==1:
-            
-            #Keep Holding
-            print ()
-            
-        elif trades[currentIndex] == 0 and openPos==0:
-            
-            #MoneyMarketAccount
-            interestRate=oRates[currentIndex.date()]
-            
-            
-        
+            regimeDates.append([buyIndex,currentIndex])
     except:
-        if openPos==0:
             pass
+
+priceHedge2=priceHedge.copy()
+
+for i in priceHedge.index:
+    if i not in portfolioValue.index:
+        priceHedge2.drop(i,inplace=True)
+        
+priceHedge=priceHedge2
+
+   
+tradeData=[]
+for i in range(len(regimeDates)):   
+    buyDate= regimeDates[i][0]
+    sellDate= regimeDates[i][1]
+    goldData=priceHedge.loc[buyDate:sellDate]["CGL.TO"]/priceHedge.loc[buyDate]["CGL.TO"]
+    treaData=priceHedge.loc[buyDate:sellDate].IEF/priceHedge.loc[buyDate].IEF
+    tradeData.append([goldData,treaData])
+
+        
+cashValue=[moneyAccount.iloc[0]]
+treaValue=[0]
+goldValue=[0] 
+j=0   
+buyDates= [i[0] for i in regimeDates]  
+sellDates= [i[1] for i in regimeDates]   
+numberofDays=0
+openPos=False
+
+for i in range(len(portfolioValue)-1):
+    
+    currentIndex=portfolioValue.index[i]
+    ORate=oRates.loc[currentIndex.date()]/36500
+    
+    if currentIndex in rebalancing[1:]:
+        
+        if openPos==True:
+            cashValue[i:i+numberofDays+1]=np.add(cashValue[i:i+numberofDays+1],1000)
+        else:
+            cashValue[i]=cashValue[i]+1000
+    
+    if openPos==True:
+        
+        if numberofDays>0:
+            numberofDays-=1
+            continue
+        
+        elif numberofDays==0:
+            cashValue[i]=goldValue[i]+treaValue[i]+cashValue[i]
+            goldValue[i]=0
+            treaValue[i]=0
+            openPos=False
+
             
+         
+    if currentIndex in buyDates:
+        
+        numberofDays=len(tradeData[j][0])-2
+        goldData=np.multiply(list(tradeData[j][0]),float(cashValue[i]/2))
+        treaData=np.multiply(list(tradeData[j][1]),float(cashValue[i]/2))      
+        goldValue[i]=(cashValue[i]/2)
+        treaValue[i]=(cashValue[i]/2)
+        cashValue[i]=0
+        goldValue.extend(list(goldData[1:]))
+        treaValue.extend(list(treaData[1:]))
+        cashValue.extend(len(goldData[1:])*[0])
+        j+=1
+        openPos=True
+
+    
+    
+    else:
+         
+         cashValue.append((cashValue[i])*(1+float(ORate)))
+         treaValue.append(0)
+         goldValue.append(0)
+
+
+
+portfolioValue["Cash"]=cashValue
+portfolioValue["CGL.TO"]=goldValue
+portfolioValue["IEF"]=treaValue
+
+usTickers.append("IEF")
+cadTickers=list(set(portfolioValue.columns)-set(usTickers))
+
+portfolioValue["USDTickers"]=portfolioValue[usTickers].sum(axis=1)
+portfolioValue["CADTickers"]=portfolioValue[cadTickers].sum(axis=1)
+
+portfolioValue=portfolioValue.join(fxData)
+portfolioValue.ffill(axis=0,inplace=True)
+portfolioValue["USDTickers_CAD"]=portfolioValue["USDTickers"].multiply(portfolioValue["Adj Close"])
+# portfolioValue.drop(["Adj Close"],inplace=True,axis=1)    
+    
+
+portfolioValue["Principal"]=investment
+portfolioValue["Value_CAD"]=portfolioValue["CADTickers"]+portfolioValue["USDTickers_CAD"]
+
 
 
 
@@ -320,15 +410,13 @@ plt.stackplot(list(ERCWeight.index),ERCWeight.values.T,labels=labels)
 plt.title("Weights Rebalancing Evolution")
 plt.legend()
 plt.show()
+
 plt.figure(figsize=(10,5))
 temp=portfolioValue[ERCWeight.columns].div(portfolioValue.Value,axis=0)
 plt.stackplot(list(portfolioValue.index),temp.T,labels=labels)
 plt.title("Exposure by Asset Class")
 plt.legend()
 
-plt.figure(figsize=(14,5))
-plt.plot(portfolioValue[ERCWeight.columns])
-plt.legend(labels=labels)
 
 #######################################################################
 '''
