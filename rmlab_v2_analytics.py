@@ -438,7 +438,11 @@ portfolioValue["Return"]=portfolioValue["Value"].pct_change()
 portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Return']=(portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])/((portfolioValue.shift(1).loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])+10000)-1
 
 returnData=portfolioValue.Return.dropna()
+fig = plt.figure(figsize=(12,10))
 qs.reports.full(returnData)
+plt.savefig("report.png")
+plt.close
+kkk=qs.reports.metrics(returnData)
 
 plt.figure(figsize=(10,5))
 labels=list(ERCWeight.columns)
@@ -460,7 +464,7 @@ plt.legend(labels=labels)
 
 # df = pd.read_csv("https://raw.githubusercontent.com/pulkitgaur22/Robo-Advisor/master/CPI%20%26%20IPI%20%26Tbill.csv?token=AMNHXGG7LI57FUENCJ7XXYC7AOMVM", index_col='DATE')
 df = pd.read_csv("MacroData.csv", index_col='DATE')
-df = df.loc[df.index>='2010-03-01'].iloc[:-2,:]
+df = df.loc[df.index>='2000-03-01'].iloc[:-2,:]
 df = df.applymap(lambda x:float(x))
 credit_risk_premium = (df['BAMLC0A4CBBBEY']-df['BAMLC0A1CAAAEY'])-(df['BAMLC0A4CBBBEY']-df['BAMLC0A1CAAAEY']).shift(1)
 
@@ -471,11 +475,12 @@ riskData['CreditPremium'] = credit_risk_premium
 riskData.columns = ['Inflation','IndustrialProdGrowth','T-Bill','Oil','Libor','House','Unemploy','CreditPremium']
 riskData['Unexpected Inflation'] = (riskData['Inflation']-riskData['Inflation'].shift(1))-(riskData['T-Bill'].shift(1)-riskData['T-Bill'].shift(2))
 riskData = riskData.dropna()
-riskData = riskData[['IndustrialProdGrowth','Oil','Libor','House','Unemploy','CreditPremium','Unexpected Inflation']]
-riskData.head()
-riskData.describe()
+riskData = riskData[['IndustrialProdGrowth','Oil','Unemploy','House','CreditPremium','Unexpected Inflation']]
 
-riskData.corr()
+# riskData.head()
+# riskData.describe()
+#
+# riskData.corr()
 
 # from google.colab import drive
 # drive.mount('/content/drive')
@@ -492,14 +497,145 @@ monthlyReturns.index=indexList
 monthlyReturns.drop(["Year","Month"],axis=1,inplace=True)
 monthlyReturns = monthlyReturns.set_index(pd.DatetimeIndex(monthlyReturns.index))
 
-X=riskData.loc["2015-04-01":][riskData.columns]
-Y=monthlyReturns.loc["2015-04-01":"2020-05-01"]
+X=riskData.loc["2015-04-01":"2020-03-01"][riskData.columns]
+Y=monthlyReturns.loc["2015-04-01":"2020-03-01"]
+
 X = sm.add_constant(X)
 model = sm.OLS(Y, X).fit()
 
+
+# Basic correlogram
+sns.pairplot(X.join(Y))
+plt.show()
+
 model.summary()
 
-model.params
+# model.params
+
+def market_econ_regression(factorReturn):
+    try:
+        riskReturns=factorReturn.Return.dropna()
+    except:
+        riskReturns=factorReturn
+    riskReturns.index = riskReturns.index.map(lambda x:pd.to_datetime(str(x)))
+    monthlyReturns=riskReturns.groupby([riskReturns.index.year,riskReturns.index.month]).sum()
+    monthlyReturns.index.names=["Year","Month"]
+    monthlyReturns=monthlyReturns.reset_index(level=[0,1])
+    indexList=[]
+    for i in range(len(monthlyReturns)):
+      indexList.append(date(int(monthlyReturns.iloc[i].Year),int(monthlyReturns.iloc[i].Month),1))
+    monthlyReturns.index=indexList
+    monthlyReturns.drop(["Year","Month"],axis=1,inplace=True)
+    monthlyReturns = monthlyReturns.set_index(pd.DatetimeIndex(monthlyReturns.index))
+
+    X=riskData.loc["2015-04-01":"2020-03-01"][riskData.columns]
+    Y=monthlyReturns.loc["2015-04-01":"2020-03-01"]
+    X = sm.add_constant(X)
+    model = sm.OLS(Y, X).fit()
+    # print(model.summary())
+    return model.params
+
+beta_Equity = market_econ_regression(rtnERCEquity)
+beta_Credit = market_econ_regression(rtnERCCredit)
+beta_PE = market_econ_regression(rtnERCPE)
+beta_BM = market_econ_regression(rtnBM)
+beta_portfolio = market_econ_regression(portfolioValue)
+
+riskData.sort_values('Unemploy').iloc[:10,:]
+
+# scenario simulation (boostraping)
+def boostraping(econ_data,scenario='down'):
+    if scenario == 'down':
+        samplePool = riskData.sort_values('Unemploy',ascending=0).iloc[:10,:]
+        randomSample1 = list(np.random.choice(samplePool.iloc[:,0],3))
+        randomSample2 = list(np.random.choice(samplePool.iloc[:,1],3))
+        randomSample3 = list(np.random.choice(samplePool.iloc[:,2],3))
+        randomSample4 = list(np.random.choice(samplePool.iloc[:,3],3))
+        randomSample5 = list(np.random.choice(samplePool.iloc[:,4],3))
+        randomSample6 = list(np.random.choice(samplePool.iloc[:,5],3))
+        # randomSample7 = list(np.random.choice(samplePool.iloc[:,6],3))
+    if scenario == 'up':
+        samplePool = riskData.sort_values('Unemploy').iloc[:10,:]
+        randomSample1 = list(np.random.choice(samplePool.iloc[:,0],3))
+        randomSample2 = list(np.random.choice(samplePool.iloc[:,1],3))
+        randomSample3 = list(np.random.choice(samplePool.iloc[:,2],3))
+        randomSample4 = list(np.random.choice(samplePool.iloc[:,3],3))
+        randomSample5 = list(np.random.choice(samplePool.iloc[:,4],3))
+        randomSample6 = list(np.random.choice(samplePool.iloc[:,5],3))
+        # randomSample7 = list(np.random.choice(samplePool.iloc[:,6],3))
+    # simulatedScenario = pd.DataFrame([randomSample1,randomSample2,randomSample3,randomSample4,randomSample5,randomSample6,randomSample7]).T
+    simulatedScenario = pd.DataFrame([randomSample1,randomSample2,randomSample3,randomSample4,randomSample5,randomSample6]).T
+    simulatedScenario.columns = econ_data.columns
+    return simulatedScenario
+
+downScenario = boostraping(riskData,scenario='down')
+upScenario = boostraping(riskData,scenario='up')
+downScenario.insert(0,'constant',1)
+upScenario.insert(0,'constant',1)
+
+upEquity = np.dot(np.array(upScenario.iloc[:,:7]),np.array(beta_Equity))
+upScenario['EQ Estimated Return'] = upEquity
+upCredit = np.dot(np.array(upScenario.iloc[:,:7]),np.array(beta_Credit))
+upScenario['CR Estimated Return'] = upCredit
+upPE = np.dot(np.array(upScenario.iloc[:,:7]),np.array(beta_PE))
+upScenario['PE Estimated Return'] = upPE
+upBM = np.dot(np.array(upScenario.iloc[:,:7]),np.array(beta_BM))
+upScenario['BM Estimated Return'] = upBM
+upPortfolio = np.dot(np.array(upScenario.iloc[:,:7]),np.array(beta_portfolio))
+upScenario['Portfolio Estimated Return'] = upPortfolio
+
+downEquity = np.dot(np.array(downScenario.iloc[:,:7]),np.array(beta_Equity))
+downScenario['EQ Estimated Return'] = downEquity
+downCredit = np.dot(np.array(downScenario.iloc[:,:7]),np.array(beta_Credit))
+downScenario['CR Estimated Return'] = downCredit
+downPE = np.dot(np.array(downScenario.iloc[:,:7]),np.array(beta_PE))
+downScenario['PE Estimated Return'] = downPE
+downBM = np.dot(np.array(downScenario.iloc[:,:7]),np.array(beta_BM))
+downScenario['BM Estimated Return'] = downBM
+downPortfolio = np.dot(np.array(downScenario.iloc[:,:7]),np.array(beta_portfolio))
+downScenario['Portfolio Estimated Return'] = downPortfolio
+upScenario
+downScenario
+
+# Risk Exposure
+# EQ = portfolioValue.loc[:'2020-06-01'].iloc[:,0:6].sum(axis=1)
+# CR = portfolioValue.loc[:'2020-06-01'].iloc[:,6:10].sum(axis=1)
+# Hedge = portfolioValue.loc[:'2020-06-01'].iloc[:,10:13].sum(axis=1)
+# PE = portfolioValue.loc[:'2020-06-01'].iloc[:,13:15].sum(axis=1)
+# Alternative = portfolioValue.loc[:'2020-06-01'].iloc[:,15].sum()
+# pd.DataFrame({'EQ':EQ,'CR':CR,'Hedge':Hedge,'PE':PE,'Alternative':Alternative}).pct_change().dropna().cov()
+
+def getExposure(portfolioValue,date='2020-06-01'):
+    w = portfolioValue.loc[date][:-3]/(portfolioValue.loc[date][:-3].sum())
+    EQw = w[0:6].sum()
+    CRw = w[6:10].sum()
+    Hedge_w = w[10:13].sum()
+    PE_w = w[13:15].sum()
+    Alternative_w = w[15]
+    # BM_w = w
+    # list of strings
+    lst = [EQw, CRw, Hedge_w, PE_w, Alternative_w]
+    df = pd.DataFrame(lst, index =['EQ', 'CR', 'Hedge', 'PE', 'Alternative'], columns =['Weight'])
+    return df
+exposure = getExposure(portfolioValue,'2020-06-01')
+
+
+# Risk Attribution
+def getRiskAttribution(portfolioValue,date='2020-06-01'):
+    # portfolioValue = portfolioValue.loc[:date]
+    w = getExposure(portfolioValue,date)
+    EQ = portfolioValue.loc[:date].iloc[:,0:6].sum(axis=1)
+    CR = portfolioValue.loc[:date].iloc[:,6:10].sum(axis=1)
+    Hedge = portfolioValue.loc[:date].iloc[:,10:13].sum(axis=1)
+    PE = portfolioValue.loc[:date].iloc[:,13:15].sum(axis=1)
+    Alternative = portfolioValue.loc[:date].iloc[:,15].sum()
+    portfolioValue = pd.DataFrame({'EQ':EQ,'CR':CR,'Hedge':Hedge,'PE':PE,'Alternative':Alternative})
+    portfolioReturns = portfolioValue.pct_change().dropna()
+    Q = portfolioReturns.cov()
+    riskAttribution = np.dot(np.array(w.T),np.array(Q))
+    return pd.DataFrame(riskAttribution,columns=['EQ','CR','Hedge','PE','Alternative'])
+riskAttribution = getRiskAttribution(portfolioValue,'2020-06-01')
+
 
 """# Regime Detection"""
 
@@ -715,3 +851,139 @@ a
 
 # Report Generation
 """
+
+
+
+"""
+# Dashboard
+"""
+import dash
+from dash.dependencies import Input, Output
+import dash_core_components as dcc
+import dash_html_components as html
+import numpy as np
+from pandas_datareader import data as web
+from datetime import datetime as dt
+
+# Set up global variables
+stockpricedf = 0
+financialreportingdf =0
+discountrate=0.2
+margin = 0.15
+
+
+# Set up the app
+app = dash.Dash(__name__)
+server = app.server
+
+app.css.append_css({
+    "external_url":"https://codepen.io/chriddyp/pen/bWLwgP.css"
+})
+
+def portfolio_construction():
+    dictlist=[]
+    dictlist.append({'value':'Risk Parity', 'label':'RP'})
+    dictlist.append({'value':'Max Sharpe Ratio', 'label':'MSR'})
+    dictlist.append({'value':'Mean-Variance Optimization', 'label':'MVO'})
+    return dictlist
+
+def test(selected_dropdown_value1,selected_dropdown_value2,selected_dropdown_value3,selected_dropdown_value_mix,risk_limit):
+    return "Strategy:" + selected_dropdown_value1 +' & ' +selected_dropdown_value2+' & '+selected_dropdown_value3+' ** '+risk_limit + '     Total:' + selected_dropdown_value_mix
+
+app.layout = html.Div([
+    html.Div([
+        html.H2("Robo Advisor"),
+        html.Img(src="/assets/UofT_logo.png")
+    ], className="banner"),
+
+    html.Div([
+        html.H2("Risk Tolerance (please enter a volatility restraint)"),
+        dcc.Input(id="risk-limit-input", value="0.5", type="text")
+        # html.Button(id="submit-button", n_clicks=0, children="Submit")
+    ]),
+
+    html.Div([
+
+        html.H2('Sub Class Optimization'),
+        # First let users choose stocks
+        html.H3('Choose an algorithm for equity class'),
+        dcc.Dropdown(
+            id='my-dropdown1',
+            #options=save_sp500_stocks_info()+save_self_stocks_info(),
+            options=portfolio_construction(),
+            value='Risk Parity'),
+        html.H3('Choose an algorithm for credit class'),
+        dcc.Dropdown(
+            id='my-dropdown2',
+            #options=save_sp500_stocks_info()+save_self_stocks_info(),
+            options=portfolio_construction(),
+            value='Risk Parity'),
+        html.H3('Choose an algorithm for PE class'),
+        dcc.Dropdown(
+            id='my-dropdown3',
+            #options=save_sp500_stocks_info()+save_self_stocks_info(),
+            options=portfolio_construction(),
+            value='Risk Parity'),
+        html.H4('Test Output'),
+        html.Table(id = 'my-table'),
+        html.P('')],style={'width': '40%', 'display': 'inline-block'}),
+        html.Div([
+        html.H2('Choose an algorithm for total portfolio'),
+        dcc.Dropdown(
+            id='mix-dropdown',
+            #options=save_sp500_stocks_info()+save_self_stocks_info(),
+            options=portfolio_construction(),
+            value='Risk Parity'),
+        html.P(''),
+        html.H2("Performance Analysis"),
+        html.Img(src="/assets/stock-icon.png",style={'height': '10%','width': '10%', 'display': 'inline-block'})
+        ], style={'width': '55%', 'float': 'right', 'display': 'inline-block'}),
+
+        html.Div([
+        html.H2('Risk Model'),
+
+        html.H3("Stress Testing"),
+        html.Img(src="/assets/stock-icon.png",style={'height': '10%','width': '10%', 'display': 'inline-block'})
+        ], style={'width': '40%', 'display': 'inline-block'})
+
+    ])
+
+
+
+# For the stocks graph
+# @app.callback(Output('my-graph', 'figure'), [Input('my-dropdown', 'value')])
+# def update_graph(selected_dropdown_value):
+#     global stockpricedf # Needed to modify global copy of stockpricedf
+#     stockpricedf = web.DataReader(
+#         selected_dropdown_value.strip(), data_source='yahoo',
+#         start=dt(2013, 1, 1), end=dt.now())
+#     return {
+#         'data': [{
+#             'x': stockpricedf.index,
+#             'y': stockpricedf.Close
+#         }]
+#     }
+
+
+# for the table
+@app.callback(Output('my-table', 'children'),
+            [Input('my-dropdown1', 'value'),
+             Input('my-dropdown2','value'),
+             Input('my-dropdown3','value'),
+             Input('mix-dropdown','value'),
+             Input("risk-limit-input",'value')])
+def generate_table(selected_dropdown_value1,selected_dropdown_value2,selected_dropdown_value3,selected_dropdown_value_mix,risk_limit):
+    # global financialreportingdf # Needed to modify global copy of financialreportingdf
+    test_v = test(selected_dropdown_value1,selected_dropdown_value2,selected_dropdown_value3,selected_dropdown_value_mix,risk_limit)
+
+    # Header
+    # return [html.Tr([html.Th(col) for col in financialreportingwritten.columns])] + [html.Tr([
+    #     html.Td(financialreportingwritten.iloc[i][col]) for col in financialreportingwritten.columns
+    # ]) for i in range(min(len(financialreportingwritten), max_rows))]
+    return [html.Tr(html.Th(test_v))]
+
+
+
+
+if __name__ == '__main__':
+    app.run_server(debug=False)
