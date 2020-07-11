@@ -102,15 +102,15 @@ priceHedge= priceHedge.ffill(axis=0).dropna()
 if 'weights.pkl' in os.listdir(os.getcwd()+'\\Data'):
     weightMerged=pd.read_pickle('Data\\weights.pkl')
 else:
-    rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerAlts)
+    rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerAlts,True)
     #Results for NYSE
-    rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerAltsCAD)
+    rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerAltsCAD,True)
     #Results for TSX
-    
+
     mutualDate=[i for i in wTotal.index if i in wTotalCAD.index]
     
 
-    weightMerged=pd.concat([wTotal.loc[mutualDate]/2,wTotalCAD.loc[mutualDate]/2],axis=1)
+    weightMerged=pd.concat([wTotal.loc[mutualDate]*0.556,wTotalCAD.loc[mutualDate]*0.444],axis=1)
     weightMerged.to_pickle('weights.pkl')
 
 
@@ -396,9 +396,9 @@ portfolioValue["Value_CAD"]=portfolioValue["CADTickers"]+portfolioValue["USDTick
 
 
 
-rebalancing = portfolioValue[~portfolioValue['Principal'].diff().isin([0])].index
-portfolioValue["Return"]=portfolioValue["Value"].pct_change()
-portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Return']=(portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])/((portfolioValue.shift(1).loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])+10000)-1
+# rebalancing = portfolioValue[~portfolioValue['Principal'].diff().isin([0])].index
+# portfolioValue["Return"]=portfolioValue["Value_CAD"].pct_change()
+# portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Return']=(portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])/((portfolioValue.shift(1).loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])+10000)-1
 
 #Generate graphs for the portfolio
 returnData=portfolioValue.Return.dropna()
