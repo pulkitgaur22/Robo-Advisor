@@ -15,7 +15,8 @@ def goodPrint(df):
 
 from pandas_datareader import data as pdr
 import quantstats as qs
-import fix_yahoo_finance as yf
+#import fix_yahoo_finance as yf
+import yfinance as yf
 from tqdm import tqdm
 from datetime import datetime
 from datetime import date,timedelta
@@ -31,7 +32,10 @@ import time
 import regimeDetection
 import strategies
 import utilityFuncs
-
+import os
+import regimeDetection as rgd
+ 
+os.getcwd()
 #######################################################################
 
 """## Data Pre Processing"""
@@ -53,73 +57,99 @@ dataNamed=pd.DataFrame(data.values,index=dataIdx,columns=clmns).dropna()
 rtnNamed=dataNamed.pct_change().dropna()
 
 
+
 #######################################################################
 
 #Portfolio Construction
 
 
 tickerEquity=['XLY','XLI','XLF','XLV','XLK','XLP']
-# Consumer Discritionary, Industrial, Financial, Health Care,Technology,
-# Consumer Staples
+# Consumer Discritionary, Industrial, Financial, Health Care,Technology, Consumer Staples
+tickerEquityCAD=['XMD.TO','XFN.TO','ZUH.TO','XIT.TO','ZDJ.TO']
+# Mid/Small, Financial, Health Care, Information Technology, DJI
+
 tickerCredit=["EMB","HYG",'LQD','MBB']
-# EMD, HY, IG, MBS, Loan BKLN not enough history
-tickerHedge=["GLD",'IEF']
-tickerPE=['PSP','IGF','VNQ']
-# PE. Infra, REITs
-tickerAlternative=['MNA']
-tickerBM=['SPY','HYG']
-stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+tickerAlternative+["SPY","CAD=X","^IRX"]
+# EMD, HY, IG, MBS
+tickerCreditCAD=['ZEF.TO','XHY.TO','ZCS.TO','XQB.TO']
+# EMD, HY, Corp Bond, IG
+
+tickerHedge=['IEF']
+tickerHedgeCAD=['CGL.TO']
+
+tickerPE=['PSP','IGF','VNQ','MNA']
+# PE, Infra, REITs, HF
+tickerPECAD=['CGR.TO','CIF.TO']
+# REITs, Hedge fund HHF not long enough, Infra
+
+#tickerBM=['SPY','HYG']
+#stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+tickerAlternative+["SPY","CAD=X","^IRX"]
+stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+["SPY","CAD=X","^IRX"]
+stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerPECAD+tickerHedgeCAD+["SPY","CAD=X","^IRX"]
 
 start = datetime(2010,1,1)
-end = datetime(2020,12,12)
+end = datetime(2020,6,1)
 
-price = pdr.get_data_yahoo(stocks, start=start, end=end)
-price = price["Adj Close"]
-price=price.dropna(how='any')
-price = price.drop(columns = ['CAD=X','^IRX'])
+price,rtn=utilityFuncs.pull_data(stocks)
+priceCAD,rtnCAD=utilityFuncs.pull_data(stocksCAD)
 
-rf = price.iloc[1:,-1]/252/100
-cad=price.iloc[1:,-2]/252
-cashValue=(1+rf).cumprod()
-cashValue=cashValue.fillna(method='bfill')
+rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerPE)
+#Results for NYSE
+rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerPECAD)
+#Results for TSX
 
-rtn=np.log(price).diff().dropna()
-
-clmns='EQ1,EQ2,EQ3,EQ4,EQ5,EQ6,CR1,CR2,CR3,CR4,Gold,Bond,PE,Inf,REITs,HF,SPY'.split(',')
-dataIdx=price.index.values
-priceNamed=pd.DataFrame(price.values,index=dataIdx,columns=clmns).dropna()
-rtnNamed=priceNamed.pct_change().dropna()
+mutualDate=[i for i in wTotal.index if i in wTotalCAD.index]
 
 
-rtnBM=(rtn[['SPY','LQD']]*np.array([0.6,0.4])).sum(axis=1)
+weightMerged=pd.concat([wTotal.loc[mutualDate]/2,wTotalCAD.loc[mutualDate]/2],axis=1)
+weightMerged.to_pickle('weights.pkl')
 
-rtnBM=rtnBM.loc[pd.to_datetime('2015-01-01'):]
-nvBM=np.exp(rtnBM.cumsum())
-shpBM=rtnBM.mean()/rtnBM.std()*16
 
-rtnERCEquity,nvERCEquity,wEquity=utilityFuncs.Fit_RP(price,tickerEquity,1000)
-rtnERCCredit,nvERCCredit,wCredit=utilityFuncs.Fit_RP(price,tickerCredit,1000)
-rtnERCPE,nvERCPE,wPE=utilityFuncs.Fit_RP(price,tickerPE,1000)
-
-dfMix=pd.DataFrame(columns=['Equity','Credit','PE'],index=nvERCCredit.index)
-dfMix.Equity=nvERCEquity.values
-dfMix.Credit=nvERCCredit.values
-dfMix.PE=nvERCPE.values
-rtnERCMix,nvERCMix,wMix=utilityFuncs.Fit_RP(dfMix,dfMix.columns,1000)
-
-weightsAll=pd.concat([(wEquity.T*wMix.Equity.values).T,(wCredit.T*wMix.Credit.values).T,(wPE.T*wMix.PE.values).T],axis=1)
-weightsAll=weightsAll*0.8
-
-for i in tickerHedge:
-    weightsAll[i]=0.075
+######################################################################
     
-weightsAll['MNA']=0.05
-
-activeClm=tickerEquity+tickerCredit+tickerPE+tickerHedge+tickerAlternative
-rtnTotal=(weightsAll*rtn.loc[weightsAll.index[1:],activeClm]).sum(axis=1)
-
-shpTotal=rtnTotal.mean()/rtnTotal.std()*16
-
+# Regime Detection
+if 'Signal.pkl' in os.listdir(os.getcwd()+'\\Data'):
+    signalSeries=pd.read_pickle('Data\\Signal.pkl')
+else:
+    dataHMM=pd.read_excel('Data\\HMM_data.xlsx',index_col=0)
+    start = datetime(2008,1,1)
+    end = datetime(2020,5,31)
+    
+    term_premium = pdr.get_data_yahoo(['^TYX','^IRX'], start=start, end=end)
+    term_premium = term_premium["Adj Close"]
+    term_premium = term_premium['^TYX']-term_premium['^IRX']
+    
+    dataHMM=dataHMM.loc[term_premium.index]
+    dataHMM.iloc[:,-1]=term_premium.values
+    
+    dataInput=dataHMM
+    dataInput_m=dataInput.resample('m').last()
+    dataNormed1=rgd.percentile_data(dataInput,1)
+    
+    EMIndex1=(dataNormed1*[0.2,0.2,0.2,0.2,0.15,0.05]).sum(axis=1)# 1-year version
+    
+    model=hmm.GMMHMM(n_components=3, covariance_type="full",random_state= 0)
+    
+    newStates1=[]
+    for i in tqdm(range(251,EMIndex1.size+1)):
+        dataHMMTemp=EMIndex1.iloc[:i].values.reshape(-1,1)
+        states=rgd.fix_states(model.fit(dataHMMTemp).predict(dataHMMTemp),EMIndex1.iloc[:i].values)
+        newStates1.append(states[-1])
+    
+    dataHMMInit1=EMIndex1.iloc[:250].values.reshape(-1,1)
+    modelInit1=model.fit(dataHMMInit1)
+    stateInit1=rgd.fix_states(modelInit1.predict(dataHMMInit1),dataHMMInit1)
+    updatedStates1=pd.Series(list(stateInit1)+newStates1,index=EMIndex1.index)
+    signalOff=[i for i in range(1,updatedStates1.size) if updatedStates1[i-1]==1 and updatedStates1[i]==2]
+    signalOn=[i for i in range(1,updatedStates1.size) if updatedStates1[i-1]==2 and updatedStates1[i]==1]
+    
+    signalSeries=pd.Series(0,index=updatedStates1.index)
+    signalSeries[signalOn]=1
+    signalSeries[signalOff]=-1
+    
+    signalSeries.to_pickle('Data\\Signal.pkl')
+    
+    
+"""
 #######################################################################
 
 #Rebalancing and Portfolio Allocation
@@ -363,3 +393,4 @@ print ("Merger Arb. Exposure : ",sum(nvAlts))
 
 #Risk Attribution
 
+"""

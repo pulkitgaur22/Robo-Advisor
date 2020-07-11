@@ -5,7 +5,8 @@ Created on Tue Jul  7 17:51:05 2020
 @author: pulki
 """
 
-import fix_yahoo_finance as yf
+#import fix_yahoo_finance as yf
+import yfinance as yf
 from scipy.optimize import minimize
 from tqdm import tqdm
 from scipy.stats import norm
@@ -17,77 +18,6 @@ import pandas as pd
 import numpy as np; np.random.seed(0)
 import seaborn as sns; sns.set()
 
-
-"""## Strategies"""
-
-class ERCRiskParity:
-    """
-    Simple Equal-Risk Contribution (ERC) portfolio
-    """
-    def __init__(self):
-        pass
-
-    def price_to_log_return(self, timeseries):
-
-        log_return = np.diff(np.log(timeseries), axis=0)
-        return log_return
-
-    def calculate_cov_matrix(self, timeseries):
-        log_return = self.price_to_log_return(timeseries)
-        cov = np.cov(log_return.T)
-        return cov
-
-    def portfolio_risk(self, weight, cov):
-
-        total_risk_of_portfolio = np.sqrt(np.dot(np.dot(weight, cov), weight.T))
-        return total_risk_of_portfolio
-
-    def marginal_risk_contribution(self, weight, cov):
-
-        ratio = np.dot(cov, weight.T) / self.portfolio_risk(weight, cov)
-        risk_contribution = np.multiply(weight.T, ratio)
-        return risk_contribution
-
-    def objection_error(self, weight, args):
-        cov = args[0]
-        risk_target_percent = args[1]
-        total_risk_of_portfolio = self.portfolio_risk(weight, cov)
-        risk_contribution = self.marginal_risk_contribution(weight, cov)
-        risk_target = np.multiply(risk_target_percent, total_risk_of_portfolio)
-        error = np.sum(np.square(risk_contribution - risk_target))
-        return error
-
-    def get_signal(self, timeseries, initial_weights, risk_target_percent, tol = 1e-10):
-        cov = self.calculate_cov_matrix(timeseries)
-        constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0},
-                        {'type': 'ineq', 'fun': lambda x: x})
-
-        optimize_result = minimize(fun=self.objection_error,
-                                    x0=initial_weights,
-                                    args=[cov, risk_target_percent],
-                                    method='SLSQP',
-                                    constraints=constraints,
-                                    tol=tol,
-                                    options={'disp': False})
-
-        weight = optimize_result.x
-        return weight
-
-    def get_allocations(self, timeseries, rolling_window = 24):
-        allocations = np.zeros(timeseries.shape)*np.nan
-        initial_weights = [1 / timeseries.shape[1]] * timeseries.shape[1]
-        risk_target_percent = [1 / timeseries.shape[1]] * timeseries.shape[1]
-        for i in tqdm(range(rolling_window, timeseries.shape[0])):
-            allocations[i,] = self.get_signal(timeseries[i-rolling_window:i+1], initial_weights,
-                                                risk_target_percent)
-
-        return allocations
-
-'''
-if __name__ == "__main__":
-    ERC = ERCRiskParity()
-
-'''
 
 class MVPort:
     """
@@ -156,12 +86,12 @@ class ERCRP:
 
     def price_to_log_return(self, timeseries):
         """
-        timeseries: 2099 * 23 numpy ndarray
-        return: 2098 * 23 numpy ndarray
+        timeseries: M * N numpy ndarray
+        return: M-1 * N numpy ndarray
         """
         log_return = np.diff(np.log(timeseries), axis=0)
         return log_return
-
+    
     def calculate_cov_matrix(self, timeseries):
         log_return = self.price_to_log_return(timeseries)
         cov = np.cov(log_return.T)
@@ -169,21 +99,21 @@ class ERCRP:
 
     def portfolio_risk(self, weight, cov):
         """
-        weight: 1 * 23 numpy ndarray
-        cov: 23 * 23 numpy ndarray
+        weight: 1 * N numpy ndarray
+        cov: N * N numpy ndarray
         return a float
         """
         total_risk_of_portfolio = np.sqrt(np.dot(np.dot(weight, cov), weight.T))
         return total_risk_of_portfolio
-
+    
     def marginal_risk_contribution(self, weight, cov):
         """
-        return a 23 * 1 numpy ndarray
+        return a N * 1 numpy ndarray
         """
         ratio = np.dot(cov, weight.T) / self.portfolio_risk(weight, cov)
         risk_contribution = np.multiply(weight.T, ratio)
         return risk_contribution
-
+    
     def objection_error(self, weight, args):
         cov = args[0]
         risk_target_percent = args[1]
@@ -192,8 +122,8 @@ class ERCRP:
         risk_target = np.multiply(risk_target_percent, total_risk_of_portfolio)
         error = np.sum(np.square(risk_contribution - risk_target))
         return error
-
-    def get_signal(self, timeseries, initial_weights, risk_target_percent, tol = 1e-10):
+    
+    def get_signal(self, timeseries, initial_weights, risk_target_percent, tol = 1e-14):
         cov = self.calculate_cov_matrix(timeseries)
         constraints = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1.0},
                         {'type': 'ineq', 'fun': lambda x: x})
@@ -201,12 +131,13 @@ class ERCRP:
         optimize_result = minimize(fun=self.objection_error,
                                     x0=initial_weights,
                                     args=[cov, risk_target_percent],
-                                    method='SLSQP',
                                     constraints=constraints,
                                     tol=tol,
+                                    method='SLSQP',
                                     options={'disp': False})
 
         weight = optimize_result.x
+        #print(weight)
         return weight
 
     def get_allocations(self, timeseries, rolling_window = 24):
@@ -217,9 +148,3 @@ class ERCRP:
             allocations[i,] = self.get_signal(timeseries[i-rolling_window:i+1], initial_weights,
                                                 risk_target_percent)
         return allocations
-
-'''
-if __name__ == "__main__":
-    ERC = ERCRiskParity()
-
-'''
