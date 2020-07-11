@@ -72,6 +72,7 @@ tickerCreditNamesUSD= [ "Emerging Markets", "High Yield", "Investment Grade", "M
 tickerCreditCAD=['ZEF.TO','XHY.TO','ZCS.TO','XQB.TO']
 tickerCreditNamesCAD= [ "Emerging Markets", "High Yield", "Corporate Bonds","Investment Grade"]
 
+#only used when regime changes
 tickerHedge=['IEF']
 tickerHNamesUSD=["US_Treasury"]
 tickerHedgeCAD=['CGL.TO']
