@@ -92,9 +92,9 @@ end = datetime(2020,6,1)
 price,rtn=utilityFuncs.pull_data(stocks)
 priceCAD,rtnCAD=utilityFuncs.pull_data(stocksCAD)
 
-rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerPE)
+rtnTotal,nvTotal,wTotal=utilityFuncs.make_port(price,tickerEquity,tickerCredit,tickerPE,True)
 #Results for NYSE
-rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerPECAD)
+rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD,tickerCreditCAD,tickerPECAD,True)
 #Results for TSX
 
 mutualDate=[i for i in wTotal.index if i in wTotalCAD.index]

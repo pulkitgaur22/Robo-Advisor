@@ -26,10 +26,14 @@ import yfinance  as yf
 
 from strategies import MVPort
 from strategies import ERCRP
+from strategies import MMT
 
 
-def Fit_RP(price,tickerEquity,N):
-    ERCEquity=ERCRP()
+def Fit_RP(price,tickerEquity,N,mmt=False):
+    if mmt:
+        ERCEquity=MMT()
+    else:
+        ERCEquity=ERCRP()
     z=ERCEquity.get_allocations(price[tickerEquity],N)
     wEquity=pd.DataFrame(z,columns=tickerEquity,index=price.index)
     wEquity=wEquity.shift(1)
@@ -76,12 +80,12 @@ def pull_data(stocks,start=datetime(2010,1,1),end = datetime(2020,6,1)):
 
 
 
-def make_port(price,tickerEquity,tickerCredit,tickerPE):
-    rtnERCEquity,nvERCEquity,wEquity=Fit_RP(price,tickerEquity,1000)
+def make_port(price,tickerEquity,tickerCredit,tickerPE,mmt=False):
+    rtnERCEquity,nvERCEquity,wEquity=Fit_RP(price,tickerEquity,1000,mmt)
     #rtnMVOEquity,nvMVOEquity,wEquity_MVO=Fit_MSR(rf,price[tickerEquity],1000)
-    rtnERCCredit,nvERCCredit,wCredit=Fit_RP(price,tickerCredit,1000)
+    rtnERCCredit,nvERCCredit,wCredit=Fit_RP(price,tickerCredit,1000,mmt)
     #rtnMVOCredit,nvMVOCredit,wCredit_MVO=Fit_MSR(rf,price[tickerCredit],1000)
-    rtnERCPE,nvERCPE,wPE=Fit_RP(price,tickerPE,1000)
+    rtnERCPE,nvERCPE,wPE=Fit_RP(price,tickerPE,1000,mmt)
     
     
     
