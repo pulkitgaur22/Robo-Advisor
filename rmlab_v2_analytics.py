@@ -11,41 +11,31 @@ def goodPrint(df):
         
         
 def get_stats(dataM):
-
-    dataM=portfolioValue.Return.dropna()
     stocks = ["SPY"]
     start = datetime(2015,4,1)
     end = datetime(2020,6,1)
-    factorData = pdr.get_data_yahoo(stocks, start=start, end=end)
-    
-    rfr=pdr.get_data_yahoo(["^IRX"], start=start, end=end)
+    factorData = pdr.get_data_yahoo(stocks, start=start, end=end)["Adj Close"].pct_change()
+    rfr=pdr.get_data_yahoo(["^IRX"], start=start, end=end)["Adj Close"]/36500
     together=factorData.join(dataM).dropna()
-    
+    together=together.join(rfr)
     correl1= round(np.corrcoef(together.SPY,together.Return)[0][1],3)
     print ("Correlation to SP500: ", correl1)
-
-    print ("Kurtosis:",round(stats.kurtosis(dataM),2))
-    print ("Skewness:",round(stats.skew(dataM),2))
-    print ("Volatility:",round(np.std(dataM)*math.sqrt(252),3))
+    print ("Kurtosis:",round(stats.kurtosis(together.Return),2))
+    print ("Skewness:",round(stats.skew(together.Return),2))
+    print ("Volatility:",round(np.std(together.Return)*math.sqrt(252),3))
     
-    sharpeRatio= np.mean(dataM-rfRate.TB3MS)/np.std(dataM-rfRate.TB3MS)
-    print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(12),3))
-    sharpeRatio2= np.mean((dataM-rfRate.TB3MS)[-60:])/np.std((dataM-rfRate.TB3MS)[-60:])
-    print ("Sharpe Ratio 5Y:",round(sharpeRatio2*math.sqrt(12),3))
-    plt.hist(dataM,bins=20,edgecolor='black')
-    (beta, alpha) = stats.linregress(factorData["S&P 500"]-rfRate.TB3MS,dataM-rfRate.TB3MS)[0:2]
+    sharpeRatio= np.mean(together.Return-together["^IRX"])/np.std(together.Return-together["^IRX"])
+    print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(252),3))
+
+
+    (beta, alpha) = stats.linregress(list(together["SPY"]-together["^IRX"]),list(together["Return"]-together["^IRX"]))[0:2]
     print ("Beta:", round(beta,3))
     print ("Alpha:", round(alpha,3))
     mdd=qs.stats.max_drawdown(dataM)
-    ulcerRatio=qs.stats.ulcer_index(dataM)
     cagr=qs.stats.cagr(dataM)
-    var=qs.stats.var(dataM)
     print ("Max Drawdown:", round(mdd,3))
-    print ("Ulcer Ratio:", round(ulcerRatio,3))
     print ("CAGR:", round(cagr,3))
-    print ("VaR:", round(var,3))
-    print ("Win/Loss Ratio",round(qs.stats.win_loss_ratio(dataM),3))
-    print ("Winning Months and Losing Months",sum(dataM>0),sum(dataM<=0))
+
 ########################################################################
 
 ## Import Statements, please install hmmlearn & quantstats
