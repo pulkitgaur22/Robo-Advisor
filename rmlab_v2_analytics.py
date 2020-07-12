@@ -8,6 +8,42 @@
 def goodPrint(df):
     with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
         print (df)
+        
+        
+# def get_stats(dataM):
+#     dataM = data["Adj Close"].pct_change()
+#     stocks = ["SPY"]
+#     #oil,sp500,gold,emerging_eq,us_7_10year_bonds,emerging bonds, hy_coroprate, reit etf, Hedge Fund, risk_free (13-week treasury bond), CAD
+#     start = datetime(2015,4,1)
+#     end = datetime(2020,6,1)
+
+#     data = pdr.get_data_yahoo(stocks, start=start, end=end)
+
+#     together=factorData.join(portfolioValue.Return).dropna()
+#     correl1= round(np.corrcoef(together.SPY,together.Return)[0][1],3)
+#     print ("Correlation to SP500: ", correl1)
+
+#     print ("Kurtosis:",round(stats.kurtosis(dataM),2))
+#     print ("Skewness:",round(stats.skew(dataM),2))
+#     print ("Volatility:",round(np.std(dataM)*math.sqrt(12),3))
+#     sharpeRatio= np.mean(dataM-rfRate.TB3MS)/np.std(dataM-rfRate.TB3MS)
+#     print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(12),3))
+#     sharpeRatio2= np.mean((dataM-rfRate.TB3MS)[-60:])/np.std((dataM-rfRate.TB3MS)[-60:])
+#     print ("Sharpe Ratio 5Y:",round(sharpeRatio2*math.sqrt(12),3))
+#     plt.hist(dataM,bins=20,edgecolor='black')
+#     (beta, alpha) = stats.linregress(factorData["S&P 500"]-rfRate.TB3MS,dataM-rfRate.TB3MS)[0:2]
+#     print ("Beta:", round(beta,3))
+#     print ("Alpha:", round(alpha,3))
+#     mdd=qs.stats.max_drawdown(dataM)
+#     ulcerRatio=qs.stats.ulcer_index(dataM)
+#     cagr=qs.stats.cagr(dataM)
+#     var=qs.stats.var(dataM)
+#     print ("Max Drawdown:", round(mdd,3))
+#     print ("Ulcer Ratio:", round(ulcerRatio,3))
+#     print ("CAGR:", round(cagr,3))
+#     print ("VaR:", round(var,3))
+#     print ("Win/Loss Ratio",round(qs.stats.win_loss_ratio(dataM),3))
+#     print ("Winning Months and Losing Months",sum(dataM>0),sum(dataM<=0))
 ########################################################################
 
 ## Import Statements, please install hmmlearn & quantstats
@@ -214,6 +250,7 @@ oRates=pd.read_csv("Data/canadaOvernight.csv",index_col=0,parse_dates=True).sort
 
 #Performance Analysis for Main Portfolio
 start=90000
+# start=100000
 portfolioValue=priceMerged.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
 portfolioValue= (portfolioValue[ERCWeight.columns])
 price=priceMerged[ERCWeight.columns].dropna()
@@ -266,7 +303,7 @@ for i in range(len(ERCWeight)):
   endvalue=priceinCAD.sum()
 
   start=9000+endvalue
-
+  # start=10000+endvalue
 
 
 
@@ -396,28 +433,46 @@ portfolioValue["Value_CAD"]=portfolioValue["CADTickers"]+portfolioValue["USDTick
 
 
 
-# rebalancing = portfolioValue[~portfolioValue['Principal'].diff().isin([0])].index
-# portfolioValue["Return"]=portfolioValue["Value_CAD"].pct_change()
-# portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Return']=(portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])/((portfolioValue.shift(1).loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value'])+10000)-1
+rebalancing = portfolioValue[~portfolioValue['Principal'].diff().isin([0])].index
+portfolioValue["Return"]=portfolioValue["Value_CAD"].pct_change()
+portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Return']=(portfolioValue.loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value_CAD'])/((portfolioValue.shift(1).loc[list(portfolioValue.loc[portfolioValue.index.isin(rebalancing)][1:].index),'Value_CAD'])+10000)-1
+
+
+###################################
+
 
 #Generate graphs for the portfolio
 returnData=portfolioValue.Return.dropna()
 qs.reports.full(returnData)
 
-#Portfolio Exposures
-plt.figure(figsize=(10,5))
-labels=list(ERCWeight.columns)
-plt.stackplot(list(ERCWeight.index),ERCWeight.values.T,labels=labels)
-plt.title("Weights Rebalancing Evolution")
-plt.legend()
-plt.show()
 
-plt.figure(figsize=(10,5))
-temp=portfolioValue[ERCWeight.columns].div(portfolioValue.Value,axis=0)
-plt.stackplot(list(portfolioValue.index),temp.T,labels=labels)
-plt.title("Exposure by Asset Class")
+labels = ["CAD ", "USD"]
+y = np.vstack([portfolioValue["CADTickers"]/portfolioValue["Value_CAD"], (1-(portfolioValue["CADTickers"]/portfolioValue["Value_CAD"]))])
+plt.stackplot(portfolioValue.index, y,labels=labels)
+plt.title("USD/CAD Exposure")
 plt.legend()
 
+
+#key
+equityTickers=tickerEquity+tickerEquityCAD
+creditTickers=tickerCredit+tickerCreditCAD
+altsTickers=tickerAlts+tickerAltsCAD
+
+
+plt.figure(figsize=(12,5))
+labels = ["Equity ", "Credit" , "Alternatives","Cash","Gold","FI"]
+
+equityValue=(portfolioValue[equityTickers].sum(axis=1)).divide(portfolioValue["Value_CAD"])
+creditValue=(portfolioValue[creditTickers].sum(axis=1)).divide(portfolioValue["Value_CAD"])
+altsValue=(portfolioValue[altsTickers].sum(axis=1)).divide(portfolioValue["Value_CAD"])
+cashValue=(portfolioValue["Cash"]).divide(portfolioValue["Value_CAD"])
+goldValue=(portfolioValue["CGL.TO"]).divide(portfolioValue["Value_CAD"])
+fiValue=(portfolioValue["IEF"]).divide(portfolioValue["Value_CAD"])
+
+y=np.vstack([equityValue,creditValue,altsValue,cashValue,goldValue,fiValue])
+plt.stackplot(portfolioValue.index, y,labels=labels)
+plt.title("Asset Class Exposure")
+plt.legend()
 
 #######################################################################
 '''
