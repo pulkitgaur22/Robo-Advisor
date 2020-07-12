@@ -12,12 +12,13 @@ def goodPrint(df):
         
 def get_stats(dataM):
 
-    =portfolioValue.Return.dropna()
+    dataM=portfolioValue.Return.dropna()
     stocks = ["SPY"]
     start = datetime(2015,4,1)
     end = datetime(2020,6,1)
-    data = pdr.get_data_yahoo(stocks, start=start, end=end)
-dataM
+    factorData = pdr.get_data_yahoo(stocks, start=start, end=end)
+    
+    rfr=pdr.get_data_yahoo(["^IRX"], start=start, end=end)
     together=factorData.join(dataM).dropna()
     
     correl1= round(np.corrcoef(together.SPY,together.Return)[0][1],3)
