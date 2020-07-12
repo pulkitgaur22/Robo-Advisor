@@ -10,40 +10,41 @@ def goodPrint(df):
         print (df)
         
         
-# def get_stats(dataM):
-#     dataM = data["Adj Close"].pct_change()
-#     stocks = ["SPY"]
-#     #oil,sp500,gold,emerging_eq,us_7_10year_bonds,emerging bonds, hy_coroprate, reit etf, Hedge Fund, risk_free (13-week treasury bond), CAD
-#     start = datetime(2015,4,1)
-#     end = datetime(2020,6,1)
+def get_stats(dataM):
 
-#     data = pdr.get_data_yahoo(stocks, start=start, end=end)
+    =portfolioValue.Return.dropna()
+    stocks = ["SPY"]
+    start = datetime(2015,4,1)
+    end = datetime(2020,6,1)
+    data = pdr.get_data_yahoo(stocks, start=start, end=end)
+dataM
+    together=factorData.join(dataM).dropna()
+    
+    correl1= round(np.corrcoef(together.SPY,together.Return)[0][1],3)
+    print ("Correlation to SP500: ", correl1)
 
-#     together=factorData.join(portfolioValue.Return).dropna()
-#     correl1= round(np.corrcoef(together.SPY,together.Return)[0][1],3)
-#     print ("Correlation to SP500: ", correl1)
-
-#     print ("Kurtosis:",round(stats.kurtosis(dataM),2))
-#     print ("Skewness:",round(stats.skew(dataM),2))
-#     print ("Volatility:",round(np.std(dataM)*math.sqrt(12),3))
-#     sharpeRatio= np.mean(dataM-rfRate.TB3MS)/np.std(dataM-rfRate.TB3MS)
-#     print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(12),3))
-#     sharpeRatio2= np.mean((dataM-rfRate.TB3MS)[-60:])/np.std((dataM-rfRate.TB3MS)[-60:])
-#     print ("Sharpe Ratio 5Y:",round(sharpeRatio2*math.sqrt(12),3))
-#     plt.hist(dataM,bins=20,edgecolor='black')
-#     (beta, alpha) = stats.linregress(factorData["S&P 500"]-rfRate.TB3MS,dataM-rfRate.TB3MS)[0:2]
-#     print ("Beta:", round(beta,3))
-#     print ("Alpha:", round(alpha,3))
-#     mdd=qs.stats.max_drawdown(dataM)
-#     ulcerRatio=qs.stats.ulcer_index(dataM)
-#     cagr=qs.stats.cagr(dataM)
-#     var=qs.stats.var(dataM)
-#     print ("Max Drawdown:", round(mdd,3))
-#     print ("Ulcer Ratio:", round(ulcerRatio,3))
-#     print ("CAGR:", round(cagr,3))
-#     print ("VaR:", round(var,3))
-#     print ("Win/Loss Ratio",round(qs.stats.win_loss_ratio(dataM),3))
-#     print ("Winning Months and Losing Months",sum(dataM>0),sum(dataM<=0))
+    print ("Kurtosis:",round(stats.kurtosis(dataM),2))
+    print ("Skewness:",round(stats.skew(dataM),2))
+    print ("Volatility:",round(np.std(dataM)*math.sqrt(252),3))
+    
+    sharpeRatio= np.mean(dataM-rfRate.TB3MS)/np.std(dataM-rfRate.TB3MS)
+    print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(12),3))
+    sharpeRatio2= np.mean((dataM-rfRate.TB3MS)[-60:])/np.std((dataM-rfRate.TB3MS)[-60:])
+    print ("Sharpe Ratio 5Y:",round(sharpeRatio2*math.sqrt(12),3))
+    plt.hist(dataM,bins=20,edgecolor='black')
+    (beta, alpha) = stats.linregress(factorData["S&P 500"]-rfRate.TB3MS,dataM-rfRate.TB3MS)[0:2]
+    print ("Beta:", round(beta,3))
+    print ("Alpha:", round(alpha,3))
+    mdd=qs.stats.max_drawdown(dataM)
+    ulcerRatio=qs.stats.ulcer_index(dataM)
+    cagr=qs.stats.cagr(dataM)
+    var=qs.stats.var(dataM)
+    print ("Max Drawdown:", round(mdd,3))
+    print ("Ulcer Ratio:", round(ulcerRatio,3))
+    print ("CAGR:", round(cagr,3))
+    print ("VaR:", round(var,3))
+    print ("Win/Loss Ratio",round(qs.stats.win_loss_ratio(dataM),3))
+    print ("Winning Months and Losing Months",sum(dataM>0),sum(dataM<=0))
 ########################################################################
 
 ## Import Statements, please install hmmlearn & quantstats
@@ -54,6 +55,7 @@ import quantstats as qs
 #import fix_yahoo_finance as yf
 import yfinance as yf
 from tqdm import tqdm
+import math
 from datetime import datetime
 from datetime import date,timedelta
 import matplotlib.pyplot as plt
@@ -62,6 +64,7 @@ import pandas as pd
 import statsmodels.api as sm
 import numpy as np; np.random.seed(0)
 import seaborn as sns; sns.set()
+from scipy import stats
 from hmmlearn import hmm
 from sklearn.decomposition import PCA
 import time
