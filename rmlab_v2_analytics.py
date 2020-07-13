@@ -28,13 +28,13 @@ def get_stats(dataM):
     print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(252),3))
 
 
-    (beta, alpha) = stats.linregress(list(together["SPY"]-together["^IRX"]),list(together["Return"]-together["^IRX"]))[0:2]
-    print ("Beta:", round(beta,3))
-    print ("Alpha:", round(alpha,3))
+    # (beta, alpha) = stats.linregress(list(together["SPY"]-together["^IRX"]),list(together["Return"]-together["^IRX"]))[0:2]
+    # print ("Beta:", round(beta,3))
+    # print ("Alpha:", round(alpha,3))
     mdd=qs.stats.max_drawdown(dataM)
     cagr=qs.stats.cagr(dataM)
-    print ("Max Drawdown:", round(mdd,3))
-    print ("CAGR:", round(cagr,3))
+    print ("Max Drawdown in %:", round(mdd*100,3))
+    print ("CAGR in %:", round(cagr*100,3))
 
 ########################################################################
 
@@ -95,12 +95,12 @@ tickerEquity=['XLY','XLI','XLF','XLV','XLK','XLP']
 tickerEqNamesUS=["Consumer Discretionary", "Industrial", "Financial", "Health Care","Technology","Consumer Staples"]
 
 tickerEquityCAD=['XMD.TO','XFN.TO','ZUH.TO','XIT.TO','ZDJ.TO']
-tickerEqNamesCAD=["Mid_Small", "Financial", "Health Care", "Information Technology", "DJI"]
+tickerEqNamesCAD=["Mid_Small_CAD", "Financial_CAD", "Health Care_CAD", "Information Technology_CAD", "DJI_CAD"]
 
 tickerCredit=["EMB","HYG",'LQD','MBB']
 tickerCreditNamesUSD= [ "Emerging Markets", "High Yield", "Investment Grade", "Mortgage Backed Securities"]
 tickerCreditCAD=['ZEF.TO','XHY.TO','ZCS.TO','XQB.TO']
-tickerCreditNamesCAD= [ "Emerging Markets", "High Yield", "Corporate Bonds","Investment Grade"]
+tickerCreditNamesCAD= [ "Emerging Markets_CAD", "High Yield_CAD", "Corporate Bonds_CAD","Investment Grade_CAD"]
 
 #only used when regime changes
 tickerHedge=['IEF']
@@ -111,7 +111,7 @@ tickerHNamesCAD=["Gold_CAD"]
 tickerAlts=['PSP','IGF','VNQ','MNA']
 tickerAltsNamesUSD=["PE", "Infra", "REITs", "HF"]
 tickerAltsCAD=['CGR.TO','CIF.TO']
-tickerAltsNamesCAD=["REITs", "Infra"]
+tickerAltsNamesCAD=["REITs_CAD", "Infra_CAD"]
 
 stocks = tickerEquity+tickerCredit+tickerAlts+tickerHedge+["SPY","CAD=X","^IRX"]
 stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerAltsCAD+tickerHedgeCAD+["SPY","CAD=X","^IRX"]
@@ -468,80 +468,81 @@ plt.stackplot(portfolioValue.index, y,labels=labels)
 plt.title("Asset Class Exposure")
 plt.legend()
 
-#######################################################################
-'''
-#Risk Models
-
-df = pd.read_csv("Data/MacroData.csv", index_col='DATE')
-df = df.loc[df.index>='2010-03-01'].iloc[:-2,:]
-df = df.applymap(lambda x:float(x))
-credit_risk_premium = (df['BAMLC0A4CBBBEY']-df['BAMLC0A1CAAAEY'])-(df['BAMLC0A4CBBBEY']-df['BAMLC0A1CAAAEY']).shift(1)
-
-inflation = df['CPIAUCSL'].pct_change().dropna()*100*12
-Industrial_prod_growth = df['INDPRO'].pct_change().dropna()*100
-riskData = pd.DataFrame(inflation).join(Industrial_prod_growth).join(df.iloc[:,2:7])
-riskData['CreditPremium'] = credit_risk_premium
-riskData.columns = ['Inflation','IndustrialProdGrowth','T-Bill','Oil','Libor','House','Unemploy','CreditPremium']
-riskData['Unexpected Inflation'] = (riskData['Inflation']-riskData['Inflation'].shift(1))-(riskData['T-Bill'].shift(1)-riskData['T-Bill'].shift(2))
-riskData = riskData.dropna()
-riskData = riskData[['IndustrialProdGrowth','Oil','Libor','House','Unemploy','CreditPremium','Unexpected Inflation']]
 
 
-riskReturns=portfolioValue.Return.dropna()
-riskReturns.index = riskReturns.index.map(lambda x:pd.to_datetime(str(x)))
-monthlyReturns=riskReturns.groupby([riskReturns.index.year,riskReturns.index.month]).sum()
-monthlyReturns.index.names=["Year","Month"]
-monthlyReturns=monthlyReturns.reset_index(level=[0,1])
-indexList=[]
+### Var Together
 
 
-for i in range(len(monthlyReturns)):
-  indexList.append(date(int(monthlyReturns.iloc[i].Year),int(monthlyReturns.iloc[i].Month),1))
 
 
-monthlyReturns.index=indexList
-monthlyReturns.drop(["Year","Month"],axis=1,inplace=True)
-monthlyReturns = monthlyReturns.set_index(pd.DatetimeIndex(monthlyReturns.index))
-
-
-#Fitting the linear model
-X=riskData.loc["2015-04-01":][riskData.columns]
-Y=monthlyReturns.loc["2015-04-01":"2020-05-01"]
-X = sm.add_constant(X)
-model = sm.OLS(Y, X).fit()
-model.summary()
 
 #######################################################################
 
-#Attribution
 
+
+print ("##################Exposures on any day#########################")
 
 selectedIndex=1000
 
-print ("Portfolio Value : ", round(portfolioValue["Value"].iloc[selectedIndex]))
+print ("Date",portfolioValue.index[selectedIndex].date())
+print ("Portfolio Value : ", round(portfolioValue["Value_CAD"].iloc[selectedIndex]))
 
-nvEquity=portfolioValue[tickerEquity].iloc[selectedIndex]
-tickerEqNames=["Consumer Discretionary", "Industrial", "Financial", "Health Care","Technology","Consumer Staples"]
-nvEquity.index=tickerEqNames
+nvEquity=portfolioValue[equityTickers].iloc[selectedIndex]
+nvEquity.index=tickerEqNamesUS+tickerEqNamesCAD
 print ("Equity Exposure : ",sum(round(nvEquity)))
 goodPrint(round(nvEquity).to_string())
 
-nvCredit=portfolioValue[tickerCredit].iloc[selectedIndex]
-tickerCreditNames= [ "Emerging Markets", "High Yield", "Investment Grade", "Mortgage Backed Securities"]
-nvCredit.index=tickerCreditNames
+nvCredit=portfolioValue[creditTickers].iloc[selectedIndex]
+nvCredit.index=tickerCreditNamesUSD+tickerCreditNamesCAD
 print ("Credit Exposure : ",sum(round(nvCredit)))
 goodPrint(round(nvCredit).to_string())
 
+nvAlts=portfolioValue[altsTickers].iloc[selectedIndex]
+nvAlts.index=tickerAltsNamesUSD+tickerAltsNamesCAD
+print ("Alternatives Exposure : ",sum(round(nvAlts)))
+goodPrint(round(nvAlts).to_string())
 
-nvHF=portfolioValue[tickerHedge].iloc[selectedIndex]
-print ("Hedge Fund Exposure : ",sum(nvHF))
-nvPE=portfolioValue[tickerPE].iloc[selectedIndex]
-print ("Private Equity Exposure : ",sum(nvPE))
-nvAlts=portfolioValue[tickerAlternative].iloc[selectedIndex]
-print ("Merger Arb. Exposure : ",sum(nvAlts))
-'''
+nvGold=portfolioValue["CGL.TO"].iloc[selectedIndex]
+print ("Gold_CAD Exposure : ", round(nvGold))
 
-#Return Attribution
+nvUST=portfolioValue["IEF"].iloc[selectedIndex]
+print ("US Treasury Exposure : ", round(nvUST))
 
-#Risk Attribution
+nvCash=portfolioValue["Cash"].iloc[selectedIndex]
+print ("Cash : ", round(nvCash))
+
+
+
+print ("###################Portfolio Stats##################")
+get_stats(portfolioValue.Return)
+
+print ("Returns -> Period Wise")
+returnsforTWR=[]
+for i in range(len(rebalancing)-1):
+   idx1= (portfolioValue.index.get_loc(rebalancing[i]))
+   idx2= (portfolioValue.index.get_loc(rebalancing[i+1]))
+   if i!=0:
+       irr=round( 100*((portfolioValue.Value_CAD.iloc[idx2-1]/portfolioValue.Value_CAD.iloc[idx1-1])-1),2)
+       print ("Period",i+1,":", irr)
+      
+   else:
+       irr=round(100*((portfolioValue.Value_CAD.iloc[idx2-1]/portfolioValue.Value_CAD.iloc[idx1])-1),2)
+       print ("Period",i+1,":", irr)
+
+   returnsforTWR.append(irr/100)
+
+
+print ("Time Weighted Return:", (np.prod(np.add(returnsforTWR,1))-1)*100)
+
+print ("###################Return Contributions Stats##################")
+
+
+print ("###################Benchmark Comparison##################")
+
+benchmarkData=pd.read_csv("Data/Benchmark.csv",index_col=0,parse_dates=True).sort_index().loc["03-2015":"05-2020"]     
+benchmarkData.drop(["Name","Code"],axis=1,inplace=True)
+start=10000
+
+
+
 
