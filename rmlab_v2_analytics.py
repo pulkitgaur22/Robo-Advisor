@@ -23,14 +23,8 @@ def get_stats(dataM):
     print ("Kurtosis:",round(stats.kurtosis(together.Return),2))
     print ("Skewness:",round(stats.skew(together.Return),2))
     print ("Volatility:",round(np.std(together.Return)*math.sqrt(252),3))
-    
     sharpeRatio= np.mean(together.Return-together["^IRX"])/np.std(together.Return-together["^IRX"])
     print ("Sharpe Ratio:",round(sharpeRatio*math.sqrt(252),3))
-
-
-    # (beta, alpha) = stats.linregress(list(together["SPY"]-together["^IRX"]),list(together["Return"]-together["^IRX"]))[0:2]
-    # print ("Beta:", round(beta,3))
-    # print ("Alpha:", round(alpha,3))
     mdd=qs.stats.max_drawdown(dataM)
     cagr=qs.stats.cagr(dataM)
     print ("Max Drawdown in %:", round(mdd*100,3))
@@ -540,9 +534,67 @@ print ("###################Return Contributions Stats##################")
 print ("###################Benchmark Comparison##################")
 
 benchmarkData=pd.read_csv("Data/Benchmark.csv",index_col=0,parse_dates=True).sort_index().loc["03-2015":"05-2020"]     
-benchmarkData.drop(["Name","Code"],axis=1,inplace=True)
-start=10000
+benchmarkData.drop(["Name","Code","Return"],axis=1,inplace=True)
+
+portmonthReturns=[]
+portmonthValue=[100000]
+for i in range(2015,2021):
+    for j in range(1,13):
+        try:
+            dataMonthly= (portfolioValue.loc[str(j)+"-"+str(i)].Value_CAD)
+            returnMonthly=(dataMonthly.iloc[-1]/dataMonthly.iloc[0])-1
+            portmonthReturns.append(round(returnMonthly,4))
+            portmonthValue.append(dataMonthly.iloc[-1])
+        except:
+            pass
+
+portmonthReturns= portmonthReturns[:-1]
+portmonthValue= portmonthValue[:-1]
+benchmarkData["Portfolio"]=portmonthValue
+benchmarkData["Port_Returns"]=benchmarkData["Portfolio"].pct_change()
+benchmarkData["Bench_Returns"]=benchmarkData["Index"].pct_change()
 
 
+for i in range(2015,2021):
+    for j in [4,10]:
+        if (j==4 and i==2015) or (j==10 and i==2020):
+            continue
+        else:
+            idx= (benchmarkData.loc[str(j)+"-"+str(i)].index[0])
+            idx1= (benchmarkData.index.get_loc(idx))
+            newReturn=((benchmarkData.iloc[idx1].Portfolio)/(benchmarkData.iloc[idx1-1].Portfolio+10000))-1
+            benchmarkData.loc[idx].Port_Returns=newReturn
+
+
+plt.plot(benchmarkData["Port_Returns"].cumsum(),label="Port")
+plt.plot(benchmarkData["Bench_Returns"].cumsum(),label="Benchmark")
+plt.legend()
+
+trackingError=np.std(benchmarkData["Port_Returns"]-benchmarkData["Bench_Returns"])*np.sqrt(12)
+informationRatio=  (qs.stats.cagr(benchmarkData["Port_Returns"]) - qs.stats.cagr(benchmarkData["Bench_Returns"])) /trackingError
+excessive_return=benchmarkData.Port_Returns-benchmarkData.Bench_Returns
+altIR=excessive_return.mean()/excessive_return.std()*np.sqrt(12)
+
+
+stocks = ["SPY"]
+start = datetime(2015,3,1)
+end = datetime(2020,5,31)
+factorData = pdr.get_data_yahoo(stocks, start=start, end=end)["Adj Close"]
+monthlySP=factorData.resample("m").last()
+monthlySP=monthlySP.pct_change().dropna()
+
+(beta, alpha) = stats.linregress(list(monthlySP.SPY),list(benchmarkData.Port_Returns.dropna()))[0:2]
+print ("Beta:", round(beta,3))
+print ("Alpha:", round(alpha*12,6))
+
+
+
+
+################################
+# Henry's Risk Models
+
+portReturns=benchmarkData.Port_Returns.dropna()
+
+#Add More Market Factors and macro factors
 
 
