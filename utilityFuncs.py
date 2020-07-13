@@ -29,7 +29,7 @@ from strategies import ERCRP
 from strategies import MMT
 
 
-def Fit_RP(price,tickerEquity,N,mmt=False):
+def Fit_RP(price,tickerEquity,N,mmt=False,mmt2=False):
     if mmt:
         ERCEquity=MMT()
     else:
@@ -52,16 +52,17 @@ def Fit_RP(price,tickerEquity,N,mmt=False):
 
 
 
-def Fit_MSR(rf,dfMix,N):
-    MVMix=MVPort(rf.loc[dfMix.index])
-    o=MVMix.get_allocations(dfMix.values,N)
-    wMix=pd.DataFrame(o,columns=dfMix.columns,index=dfMix.index)
+def Fit_MSR(rf,price,tickerEquity,N):
+    rf1=pd.Series(0.01/252,index=price.index)
+    MVMix=MVPort(rf1)
+    o=MVMix.get_allocations(price[tickerEquity],N)
+    wMix=pd.DataFrame(o,columns=tickerEquity,index=price.index)
     wMix=wMix.shift(1)
-    wMix.replace(np.nan,1/dfMix.shape[1],inplace=True)
-    rtnMVOMix=(wMix*np.log(dfMix).diff()).sum(axis=1)
+    wMix.replace(np.nan,1/len(tickerEquity),inplace=True)
+    rtnMVOMix=(wMix*np.log(price[tickerEquity]).diff()).sum(axis=1)
     #rtnMVOMix=rtnMVOMix.loc[pd.to_datetime('2014-12-31'):]
     nvMVOMix=np.exp(rtnMVOMix.cumsum())
-    shpMVOMix=(rtnMVOMix-rf.loc[dfMix.index]).mean()/rtnMVOMix.std()*np.sqrt(252)
+    shpMVOMix=rtnMVOMix.mean()/rtnMVOMix.std()*np.sqrt(252)
     
     print('Return:',round(rtnMVOMix.mean()*252,3))
     print('Std.:  ',round(rtnMVOMix.std()*16,3))
@@ -73,7 +74,6 @@ def pull_data(stocks,start=datetime(2010,1,1),end = datetime(2020,6,1)):
     price = price["Adj Close"]
     #cad=price.iloc[:,-2]
     
-    price = price.iloc[:,:-2]
     price=price.dropna()
     rtn=np.log(price.dropna()).diff().dropna()
     return price,rtn
@@ -82,7 +82,7 @@ def pull_data(stocks,start=datetime(2010,1,1),end = datetime(2020,6,1)):
 
 def make_port(price,tickerEquity,tickerCredit,tickerPE,mmt=False):
     rtnERCEquity,nvERCEquity,wEquity=Fit_RP(price,tickerEquity,1000,mmt)
-    #rtnMVOEquity,nvMVOEquity,wEquity_MVO=Fit_MSR(rf,price[tickerEquity],1000)
+    #rtnERCEquity,nvERCEquity,wEquity=Fit_MSR(0,price,tickerEquity,1000)
     rtnERCCredit,nvERCCredit,wCredit=Fit_RP(price,tickerCredit,1000,mmt)
     #rtnMVOCredit,nvMVOCredit,wCredit_MVO=Fit_MSR(rf,price[tickerCredit],1000)
     rtnERCPE,nvERCPE,wPE=Fit_RP(price,tickerPE,1000,mmt)

@@ -81,10 +81,15 @@ tickerPE=['PSP','IGF','VNQ','MNA']
 tickerPECAD=['CGR.TO','CIF.TO']
 # REITs, Hedge fund HHF not long enough, Infra
 
+<<<<<<< Updated upstream
 #tickerBM=['SPY','HYG']
 #stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+tickerAlternative+["SPY","CAD=X","^IRX"]
 stocks = tickerEquity+tickerCredit+tickerPE+tickerHedge+["SPY","CAD=X","^IRX"]
 stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerPECAD+tickerHedgeCAD+["SPY","CAD=X","^IRX"]
+=======
+stocks = tickerEquity+tickerCredit+tickerAlts+tickerHedge+["SPY"]
+stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerAltsCAD+tickerHedgeCAD+["SPY"]
+>>>>>>> Stashed changes
 
 start = datetime(2010,1,1)
 end = datetime(2020,6,1)
@@ -100,8 +105,13 @@ rtnTotalCAD,nvTotalCAD,wTotalCAD=utilityFuncs.make_port(priceCAD,tickerEquityCAD
 mutualDate=[i for i in wTotal.index if i in wTotalCAD.index]
 
 
+<<<<<<< Updated upstream
 weightMerged=pd.concat([wTotal.loc[mutualDate]/2,wTotalCAD.loc[mutualDate]/2],axis=1)
 weightMerged.to_pickle('weights.pkl')
+=======
+    weightMerged=pd.concat([wTotal.loc[mutualDate]*0.556,wTotalCAD.loc[mutualDate]*0.444],axis=1)
+    weightMerged.to_pickle('Data\\weights.pkl')
+>>>>>>> Stashed changes
 
 
 ######################################################################
