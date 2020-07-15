@@ -116,12 +116,14 @@ def weightsEvolution(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,ti
     cashValue=(portfolioValue["Cash"]).divide(portfolioValue["Value_CAD"])
     goldValue=(portfolioValue["CGL.TO"]).divide(portfolioValue["Value_CAD"])
     fiValue=((portfolioValue["IEF"].multiply(portfolioValue['Adj Close'],axis=0))).divide(portfolioValue["Value_CAD"])
+    fig = plt.figure(figsize=(15,5))
+    ax = plt.subplot(111)
     
-    plt.figure(figsize=(15,5))
     y=np.vstack([equityValue,creditValue,altsValue,cashValue,goldValue,fiValue])
     plt.stackplot(portfolioValue.index, y,labels=labels)
     plt.title("Asset Class Exposure")
-    plt.legend()
+    ax.legend(loc='right', bbox_to_anchor=(1, 0.5),
+          ncol=1, fancybox=True, shadow=True)
     plt.show()
     
 def nvCalculator(portfolioValue,selectedIndex,equityTickers,creditTickers,altsTickers,tickerEqNamesUS,tickerEqNamesCAD,tickerCreditNamesUSD,tickerCreditNamesCAD,tickerAltsNamesUSD,tickerAltsNamesCAD):
@@ -198,7 +200,7 @@ def benchmarkComp(portfolioValue):
     plt.ylabel("Returns")
     plt.legend()
     plt.title("Performance of Portfolio vs Benchmark")
-    
+    plt.show()
     trackingError=np.std(benchmarkData["Port_Returns"]-benchmarkData["Bench_Returns"])*np.sqrt(12)
     informationRatio=  (qs.stats.cagr(benchmarkData["Port_Returns"]) - qs.stats.cagr(benchmarkData["Bench_Returns"])) /trackingError
     excessive_return=benchmarkData.Port_Returns-benchmarkData.Bench_Returns
@@ -287,8 +289,8 @@ def getReturnAttribution(portfolioValue,rebalancing,tickerEquity,tickerEquityCAD
     returnAttr['US Alternative']=moneyAdd[tickerAlts].sum().sum()
     returnAttr['CAD Alternative']=moneyAdd[tickerAltsCAD].sum().sum()
     returnAttr['Regime']=moneyAdd['regime'].sum()
-    returnAttr=returnAttr*(portValue.Value_CAD[-1]-200000)/returnAttr.sum()
-    return returnAttr
+    returnAttr["Return Attribution"]=returnAttr*(portValue.Value_CAD[-1]-200000)/returnAttr.sum()
+    return returnAttr["Return Attribution"]
 
 def getRiskAttribution(portfolioValue,rtnBreakDown,rtnBreakDownCAD,w,date='2020-06-01'):
     returns = [rtnBreakDown[0], rtnBreakDown[1], rtnBreakDown[2], rtnBreakDownCAD[0], rtnBreakDownCAD[1], rtnBreakDownCAD[2]]
@@ -300,4 +302,9 @@ def getRiskAttribution(portfolioValue,rtnBreakDown,rtnBreakDownCAD,w,date='2020-
     riskAttribution = np.dot(np.array(w.T),np.array(Q))
     risk = pd.DataFrame(riskAttribution,columns= name,index = ['Risk Attribution'])
     riskAttr = risk/risk.sum(axis=1)[0]
-    return riskAttr.T
+    riskAttr=riskAttr.T
+    riskAttr=riskAttr*w.loc[riskAttr.index].values
+    riskAttr=riskAttr/riskAttr.sum()
+    riskAttr.index=  ['US Equity', 'US Credit', 'US Alternative', 'CAD Equity', 'CAD Credit', 'CAD Alternative']
+    return riskAttr
+

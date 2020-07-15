@@ -13,6 +13,7 @@ from pandas_datareader import data as pdr
 import quantstats as qs
 from scipy.stats import norm 
 import yfinance as yf
+import fix_yahoo_finance as yf
 from tqdm import tqdm
 import math
 from datetime import datetime
@@ -92,6 +93,7 @@ tickerAltsNamesCAD=["REITs_CAD", "Infra_CAD"]
 
 #Downloading the FX and Overnight Interest Rate Data
 start = datetime(2015,4,1)
+
 end = datetime(2020,6,1)
 fx = pdr.get_data_yahoo("CAD=X", start=start, end=end)
 fxData = fx["Adj Close"]
@@ -100,7 +102,6 @@ oRates=pd.read_csv("Data/canadaOvernight.csv",index_col=0,parse_dates=True).sort
 #Downloading data from Yahoo Finance API
 stocks = tickerEquity+tickerCredit+tickerAlts+tickerHedge+["SPY","CAD=X","^IRX"]
 stocksCAD = tickerEquityCAD+tickerCreditCAD+tickerAltsCAD+tickerHedgeCAD+["SPY","CAD=X","^IRX"]
-
 start = datetime(2010,1,1)
 end = datetime(2020,6,1)
 price,rtn=utilityFuncs.pull_data(stocks)
@@ -299,6 +300,7 @@ for i in range(len(ERCWeight)):
   #This 9000 means the amount that is added in the next rebalancing period.
   start=9000+endvalue
 
+
 #Adding the column for cash in the dataframe
 portfolioValue["Cash"]=cash
 
@@ -313,6 +315,7 @@ openPos=0
 regimeDates=[]
 
 for i in range(len(moneyAccount)):
+    
     try:
         currentIndex=moneyAccount.index[i]        
         if trades[currentIndex] == 1 and openPos==0:
@@ -324,6 +327,7 @@ for i in range(len(moneyAccount)):
             sellPrice=priceHedge.loc[(currentIndex.date())]
             openPos=0
             regimeDates.append([buyIndex,currentIndex])
+            
     except:
             pass
 
@@ -416,7 +420,6 @@ portfolioValue["CADTickers"]=portfolioValue[cadTickers].sum(axis=1)
 portfolioValue=portfolioValue.join(fxData)
 portfolioValue.ffill(axis=0,inplace=True)
 portfolioValue["USDTickers_CAD"]=portfolioValue["USDTickers"].multiply(portfolioValue["Adj Close"])
-# portfolioValue.drop(["Adj Close"],inplace=True,axis=1)    
     
 portfolioValue["Principal"]=investment
 portfolioValue["Value_CAD"]=portfolioValue["CADTickers"]+portfolioValue["USDTickers_CAD"]
@@ -460,25 +463,30 @@ benchmarkData=metricsCalculator.benchmarkComp(portfolioValue)
 
 #Exposure Plots
 exposure = metricsCalculator.getExposure(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD,tickerHedge,tickerHedgeCAD,'2020-06-01')
-exposure['Weight'].plot.pie(autopct='%.2f', fontsize=12, figsize=(8, 8))
-plt.title("Exposures")
+exposure['Weight'].plot.pie(autopct='%.2f', fontsize=15, figsize=(12, 12))
+plt.title("Exposures",fontsize=25)
 plt.show()
 
 #Return Attribution
 print ()
 print ("###################Return Attribution###################")
 df = metricsCalculator.getReturnAttribution(portfolioValue,rebalancing,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD)
-print (round((df/df.sum())*100,2))
-df.plot(kind='pie',autopct='%.2f')
-plt.title("Return Attribution")
+df= (round((df/df.sum())*100,2))
+df=pd.DataFrame(df)
+df.columns=["Return Attribution"]
+df["Return Attribution"].plot.pie(autopct='%.2f', fontsize=15, figsize=(12, 12))
+plt.title("Return Attribution",fontsize=25)
 plt.show()
+ 
 
 #Risk Attribution
 print ()
 print ("###################Risk Attribution###################")
 riskAttribution = metricsCalculator.getRiskAttribution(portfolioValue, rtnBreakDown,rtnBreakDownCAD,exposure,'2020-06-01')
 print (round(riskAttribution*100,2))
-riskAttribution['Risk Attribution'].plot.pie(autopct='%.2f', fontsize=12, figsize=(8, 8))
+riskAttribution["Risk Attribution"].plot.pie(autopct='%.2f', fontsize=15, figsize=(12, 12))
+plt.title("Risk Attribution",fontsize=25)
+plt.show()
 
 #####################################################
 ''' Risk Model'''
@@ -508,19 +516,129 @@ simdown=simdown.drop(["constant"],axis=1)
 utilityFuncs.goodPrint(round(simup,2))
 utilityFuncs.goodPrint(round(simdown,2))
 
+upScenario.to_csv("up1.csv")
+downScenario.to_csv("down1.csv")
+simup.to_csv("up2.csv")
+simdown.to_csv("down2.csv")
+
 ##################################################
 
 ''' Stressed VaR '''
 
+returns = [rtnBreakDown[0], rtnBreakDown[1], rtnBreakDown[2], rtnBreakDownCAD[0], rtnBreakDownCAD[1], rtnBreakDownCAD[2]]
+name = ['EQ_USD', 'CR_USD', 'Alt_USD', 'EQ_CAD', 'CR_CAD', 'Alt_CAD']
+returtns = pd.DataFrame(returns).T.dropna()
+returns.columns = name
+
+monthlyReturns = returns
+
+FF5 = pd.read_csv('Data/F-F_Research_Data_5_Factors_2x3_daily.CSV')
+FF5.columns = ['Date']+list(FF5.columns[1:])
+FF5.Date = FF5.Date.apply(lambda x:str(x))
+FF5.Date = FF5.Date.apply(lambda x:x[0:4]+'-'+x[4:6]+'-'+x[6:])
+FF5.Date = pd.to_datetime(FF5.Date)
+FF5.set_index('Date',inplace=True)
+
+# FF5.insert(0,'constant',1)
+FF5['RF'].shape
+monthlyReturns.shape
+
+df = monthlyReturns.join(FF5).dropna()
+df[monthlyReturns.columns] = df[monthlyReturns.columns].sub(FF5['RF'],axis=0)
 
 
+X=df[FF5.columns[:-1]]
+X = sm.add_constant(X)
+betaList = []
 
 
+for i in range(monthlyReturns.shape[1]):
+    Y=df.iloc[:,i]
+    model = sm.OLS(Y, X).fit()
+    betaList.append(model.params)
+betaList = pd.DataFrame(betaList).T
+betaList.columns = monthlyReturns.columns
+
+HedgeTicker=["CGL.TO","IEF"]
+
+Hedge = portfolioValue[HedgeTicker].pct_change().replace([np.inf, -np.inf], np.nan).dropna()
+Hedge = Hedge.replace([0,-1],np.nan).dropna()
+df2 = Hedge.join(FF5)
+df2[Hedge.columns] = df2[Hedge.columns].sub(FF5['RF'],axis=0)
+X=df2[FF5.columns[:-1]]
+X = sm.add_constant(X)
+betaList2 = []
 
 
+for i in range(Hedge.shape[1]):
+    Y=df2.iloc[:,i]
+    model = sm.OLS(Y, X).fit()
+    betaList2.append(model.params)
+betaList2 = pd.DataFrame(betaList2).T
+betaList2.columns = Hedge.columns
 
+betaList = betaList.join(betaList2)
 
+def stressVaR(start_date,end_date,quantile):
+    FF = sm.add_constant(FF5.loc[start_date:end_date])
 
+    weight = (metricsCalculator.getExposure(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD,tickerHedge,tickerHedgeCAD,date=list(portfolioValue.loc[portfolioValue['CGL.TO']!=0].index[1:])[np.random.choice(portfolioValue.loc[portfolioValue['CGL.TO']!=0].index[1:].shape[0])]))
+    np.array(weight.iloc[:-1])
+
+    returns = np.dot(np.array(FF.iloc[:,:-1]),np.array(betaList))
+    # get 99% VaR
+    return np.sort(returns.dot(np.array(weight.iloc[:-1])),axis=0)[round(len(returns.dot(np.array(weight.iloc[:-1])))*(1-quantile))]
+
+subprimeRecession_99 = stressVaR('2008-01','2009-06',0.99)
+subprimeRecession_95 = stressVaR('2008-01','2009-06',0.95)
+subprimeRecession_90 = stressVaR('2008-01','2009-06',0.90)
+
+# 2001 tech bubble
+techBubble_99 = stressVaR('2000-03','2002-09',0.99)
+techBubble_95 = stressVaR('2000-03','2002-09',0.95)
+techBubble_90 = stressVaR('2000-03','2002-09',0.90)
+# 911
+sellOff911_99 = stressVaR('2001-07','2001-09',0.99)
+sellOff911_95 = stressVaR('2001-07','2001-09',0.95)
+sellOff911_90 = stressVaR('2001-07','2001-09',0.90)
+
+# Asian crisis
+AsianCrisis_99 = stressVaR('1998-04','1998-10',0.99)
+AsianCrisis_95 = stressVaR('1998-04','1998-10',0.95)
+AsianCrisis_90 = stressVaR('1998-04','1998-10',0.90)
+
+# Summer 2011
+Summer2011_99 = stressVaR('2011-06','2011-10',0.99)
+Summer2011_95 = stressVaR('2011-06','2011-10',0.95)
+Summer2011_90 = stressVaR('2011-06','2011-10',0.90)
+
+# 2015-2016 growth scare
+growthScare_99 = stressVaR('2015-06','2016-1',0.99)
+growthScare_95 = stressVaR('2015-06','2016-1',0.95)
+growthScare_90 = stressVaR('2015-06','2016-1',0.90)
+
+labels = ['Asian crisis', '2001 Tech Bubble', '9/11 sell out', 'Subprime crisis', 'Summer 2011', 'Growth scare 15-16']
+VaR_90 = [AsianCrisis_90, techBubble_90, sellOff911_90, subprimeRecession_90, Summer2011_90, growthScare_90]
+VaR_95 = [AsianCrisis_95, techBubble_95, sellOff911_95, subprimeRecession_95, Summer2011_95, growthScare_95]
+VaR_99 = [AsianCrisis_99, techBubble_99, sellOff911_99, subprimeRecession_99, Summer2011_99, growthScare_99]
+VaR_90 = [100*VaR_90[i][0] for i in range(len(VaR_90))]
+VaR_95 = [100*VaR_95[i][0] for i in range(len(VaR_95))]
+VaR_99 = [100*VaR_99[i][0] for i in range(len(VaR_99))]
+
+x = np.arange(len(labels))  # the label locations
+width = 0.2  # the width of the bars
+fig, ax = plt.subplots(figsize=(10,10))
+rects1 = ax.bar(x - width/2, VaR_90, width, label='90% VaR')
+rects2 = ax.bar(x + width/2, VaR_95, width, label='95% VaR')
+rects2 = ax.bar(x + width*1.5, VaR_99, width, label='99% VaR')
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_ylabel('VaR Returns (%)')
+ax.set_title('Stress Value at Risk')
+ax.set_xticks(x)
+ax.set_xticklabels(labels)
+ax.legend()
+fig.tight_layout()
+plt.show()
 
 
 
