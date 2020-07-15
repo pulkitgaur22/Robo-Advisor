@@ -116,7 +116,7 @@ def weightsEvolution(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,ti
     cashValue=(portfolioValue["Cash"]).divide(portfolioValue["Value_CAD"])
     goldValue=(portfolioValue["CGL.TO"]).divide(portfolioValue["Value_CAD"])
     fiValue=((portfolioValue["IEF"].multiply(portfolioValue['Adj Close'],axis=0))).divide(portfolioValue["Value_CAD"])
-    fig = plt.figure(figsize=(15,5))
+    fig = plt.figure()
     ax = plt.subplot(111)
     
     y=np.vstack([equityValue,creditValue,altsValue,cashValue,goldValue,fiValue])
@@ -298,7 +298,7 @@ def getRiskAttribution(portfolioValue,rtnBreakDown,rtnBreakDownCAD,w,date='2020-
     w = w.loc[name]/w.loc[name].sum()
     df = pd.DataFrame(returns).T.dropna()
     df.columns = name
-    Q = df.cov()
+    Q = df.iloc[-1000:].cov()
     riskAttribution = np.dot(np.array(w.T),np.array(Q))
     risk = pd.DataFrame(riskAttribution,columns= name,index = ['Risk Attribution'])
     riskAttr = risk/risk.sum(axis=1)[0]

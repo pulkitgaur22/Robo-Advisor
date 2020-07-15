@@ -48,7 +48,7 @@ end = datetime(2020,6,1)
 data = pdr.get_data_yahoo(stocks, start=start, end=end)
 data = data["Adj Close"]
 rf = data.iloc[1:,-1]/252
-cad=data.iloc[1:,-2]/252
+cad=data["CAD=X"]
 data = data.iloc[1:,:-2]
 returns=data.pct_change().dropna()
 clmns='Oil,SPX,Gold,EM EQ,US Bond,EMD,US HY,REIT,Hedge Fund'.split(',')
@@ -127,12 +127,6 @@ weightMerged.to_pickle('weights.pkl')
 ######################################################################
     
 # Regime Detection and Signals Generation
-'''
-Input-  
-Output- 
-
-
-'''
 
 if 'Signal.pkl' in os.listdir(os.getcwd()+'\\Data'):
     
@@ -304,7 +298,6 @@ for i in range(len(ERCWeight)):
 #Adding the column for cash in the dataframe
 portfolioValue["Cash"]=cash
 
-
 #Adding the regime strategy overlay
 
 trades=signalSeries.loc[pd.to_datetime('2015-04-01'):pd.to_datetime('2020-06-01')].dropna()
@@ -333,14 +326,17 @@ for i in range(len(moneyAccount)):
 
 # This dataframe holds the price for GOLD and US Treasury
 priceHedge2=priceHedge.copy()
+
 for i in priceHedge.index:
     if i not in portfolioValue.index:
         priceHedge2.drop(i,inplace=True)
+        
 priceHedge=priceHedge2
 
 #This holds the price for the assets during each round trip
 tradeData=[]
 for i in range(len(regimeDates)):   
+    
     buyDate= regimeDates[i][0]
     sellDate= regimeDates[i][1]
     goldData=priceHedge.loc[buyDate:sellDate]["CGL.TO"]/priceHedge.loc[buyDate]["CGL.TO"]
@@ -437,19 +433,6 @@ equityTickers=tickerEquity+tickerEquityCAD
 creditTickers=tickerCredit+tickerCreditCAD
 altsTickers=tickerAlts+tickerAltsCAD
 
-#Generate graphs for the portfolio
-returnData=portfolioValue.Return.dropna()
-metricsCalculator.portfolioGraphsandStats(returnData)
-
-#Evolution of USD/CAD exposure
-metricsCalculator.usdcadExposures(portfolioValue)
-
-#Asset Classes Weights Evolutions
-metricsCalculator.weightsEvolution(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD)
-
-#Notional Value in each Asset
-metricsCalculator.nvCalculator(portfolioValue,len(portfolioValue)-1,equityTickers,creditTickers,altsTickers,tickerEqNamesUS,tickerEqNamesCAD,tickerCreditNamesUSD,tickerCreditNamesCAD,tickerAltsNamesUSD,tickerAltsNamesCAD)
-
 #Important Stats for Performance
 metricsCalculator.get_stats(portfolioValue,rebalancing)
 
@@ -461,32 +444,63 @@ print ()
 print ("###################Benchmark Comparison##################")
 benchmarkData=metricsCalculator.benchmarkComp(portfolioValue)
 
+
+#Generate graphs for the portfolio
+returnData=portfolioValue.Return.dropna()
+metricsCalculator.portfolioGraphsandStats(returnData)
+
+plt.style.use("ggplot")
+#Evolution of USD/CAD exposure
+metricsCalculator.usdcadExposures(portfolioValue)
+sns.set()
+
+
+plt.style.use("ggplot")
+#Asset Classes Weights Evolutions
+metricsCalculator.weightsEvolution(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD)
+sns.set()
+
+#Notional Value in each Asset
+metricsCalculator.nvCalculator(portfolioValue,len(portfolioValue)-1,equityTickers,creditTickers,altsTickers,tickerEqNamesUS,tickerEqNamesCAD,tickerCreditNamesUSD,tickerCreditNamesCAD,tickerAltsNamesUSD,tickerAltsNamesCAD)
+
+
+
+plt.style.use("ggplot")
 #Exposure Plots
 exposure = metricsCalculator.getExposure(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD,tickerHedge,tickerHedgeCAD,'2020-06-01')
 exposure['Weight'].plot.pie(autopct='%.2f', fontsize=15, figsize=(12, 12))
 plt.title("Exposures",fontsize=25)
 plt.show()
+sns.set()
 
+
+sns.set()
 #Return Attribution
 print ()
+colors=["#376e87","#8db5bf","#004c6d","#6191a3","#badade","#eaffff","#F8FCFE"]
 print ("###################Return Attribution###################")
 df = metricsCalculator.getReturnAttribution(portfolioValue,rebalancing,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD)
 df= (round((df/df.sum())*100,2))
 df=pd.DataFrame(df)
+print (df)
 df.columns=["Return Attribution"]
-df["Return Attribution"].plot.pie(autopct='%.2f', fontsize=15, figsize=(12, 12))
+df["Return Attribution"].plot.pie(autopct='%.2f',colors=colors, fontsize=15, figsize=(12, 12))
 plt.title("Return Attribution",fontsize=25)
 plt.show()
- 
+
+
 
 #Risk Attribution
+colors=["#376e87","#8db5bf","#badade","#004c6d","#6191a3","#eaffff"]
 print ()
 print ("###################Risk Attribution###################")
 riskAttribution = metricsCalculator.getRiskAttribution(portfolioValue, rtnBreakDown,rtnBreakDownCAD,exposure,'2020-06-01')
 print (round(riskAttribution*100,2))
-riskAttribution["Risk Attribution"].plot.pie(autopct='%.2f', fontsize=15, figsize=(12, 12))
+riskAttribution["Risk Attribution"].plot.pie(autopct='%.2f', colors=colors,fontsize=15, figsize=(12, 12))
 plt.title("Risk Attribution",fontsize=25)
 plt.show()
+
+
 
 #####################################################
 ''' Risk Model'''
@@ -515,19 +529,13 @@ simdown=simdown.drop(["constant"],axis=1)
 
 utilityFuncs.goodPrint(round(simup,2))
 utilityFuncs.goodPrint(round(simdown,2))
-
-upScenario.to_csv("up1.csv")
-downScenario.to_csv("down1.csv")
-simup.to_csv("up2.csv")
-simdown.to_csv("down2.csv")
-
 ##################################################
 
 ''' Stressed VaR '''
 
 returns = [rtnBreakDown[0], rtnBreakDown[1], rtnBreakDown[2], rtnBreakDownCAD[0], rtnBreakDownCAD[1], rtnBreakDownCAD[2]]
 name = ['EQ_USD', 'CR_USD', 'Alt_USD', 'EQ_CAD', 'CR_CAD', 'Alt_CAD']
-returtns = pd.DataFrame(returns).T.dropna()
+returns = pd.DataFrame(returns).T.dropna()
 returns.columns = name
 
 monthlyReturns = returns
