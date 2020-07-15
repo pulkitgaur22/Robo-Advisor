@@ -378,8 +378,7 @@ for i in range(len(portfolioValue)-1):
             goldValue[i]=0
             treaValue[i]=0
             openPos=False
-
-            
+           
          
     if currentIndex in buyDates:
         
@@ -483,9 +482,9 @@ riskAttribution['Risk Attribution'].plot.pie(autopct='%.2f', fontsize=12, figsiz
 
 #####################################################
 ''' Risk Model'''
+#Linear Model and then shocking one by one and also, copula based distribution
 portReturns=benchmarkData.Port_Returns.dropna()
-
-upScenario,downScenario=riskModel.getResults(benchmarkData,portfolioValue,tickerAlts,tickerCredit,tickerEquity,tickerHedge,tickerAltsCAD,tickerCreditCAD,tickerEquityCAD,tickerHedgeCAD)
+upScenario,downScenario,simup,simdown=riskModel.getResults(benchmarkData,portfolioValue,tickerAlts,tickerCredit,tickerEquity,tickerHedge,tickerAltsCAD,tickerCreditCAD,tickerEquityCAD,tickerHedgeCAD)
 upScenario=upScenario.drop(["constant"],axis=1)
 upScenario["Value"]=upScenario["Portfolio Estimated Return"]*portfolioValue.iloc[-1].Value_CAD
 upScenario["Portfolio Estimated Return"]=upScenario["Portfolio Estimated Return"]*100
@@ -497,10 +496,21 @@ downScenario["Value"]=downScenario["Portfolio Estimated Return"]*portfolioValue.
 downScenario["Portfolio Estimated Return"]=downScenario["Portfolio Estimated Return"]*100
 utilityFuncs.goodPrint(round(downScenario,2))
 
+simup["Value"]=simup["Portfolio Estimated Return"]*portfolioValue.iloc[-1].Value_CAD
+simup["Portfolio Estimated Return"]=simup["Portfolio Estimated Return"]*100
+
+simdown["Value"]=simdown["Portfolio Estimated Return"]*portfolioValue.iloc[-1].Value_CAD
+simdown["Portfolio Estimated Return"]=simdown["Portfolio Estimated Return"]*100
+
+simup=simup.drop(["constant"],axis=1)
+simdown=simdown.drop(["constant"],axis=1)
+
+utilityFuncs.goodPrint(round(simup,2))
+utilityFuncs.goodPrint(round(simdown,2))
+
 ##################################################
 
-
-
+''' Stressed VaR '''
 
 
 

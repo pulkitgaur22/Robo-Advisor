@@ -22,7 +22,8 @@ import metricsCalculator
 import regimeDetection as rgd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-
+from copulas.multivariate import GaussianMultivariate
+from copulas.multivariate import VineCopula
 
 def getResults(benchmarkData,portfolioValue,tickerAlts,tickerCredit,tickerEquity,tickerHedge,tickerAltsCAD,tickerCreditCAD,tickerEquityCAD,tickerHedgeCAD):
     
@@ -68,6 +69,7 @@ def getResults(benchmarkData,portfolioValue,tickerAlts,tickerCredit,tickerEquity
     
     X = sm.add_constant(X)
     model = sm.OLS(Y, X).fit()
+    
     
     # Basic correlogram, THIS CAN GO IN OUR REPORT
     # sns.pairplot(X.join(Y))
@@ -129,5 +131,19 @@ def getResults(benchmarkData,portfolioValue,tickerAlts,tickerCredit,tickerEquity
     downScenario['Portfolio Estimated Return'] = downPortfolio
     # downScenario = downScenario.loc[downScenario['Portfolio Estimated Return']<=downThreshold]
     
-    return upScenario,downScenario
+
+    data=riskfactorData[riskfactorData.columns[:-1]]
+    # copula = GaussianMultivariate()
+    # copula = VineCopula('center')
+    copula = VineCopula('regular')
+    # copula = VineCopula('direct')
+    copula.fit(data)
+    samples = copula.sample(10000)
+    samples.insert(0,'constant',1)
+    samplePortfolio = np.dot(np.array(samples),np.array(model.params))
+    samples['Portfolio Estimated Return'] = samplePortfolio
+    upScenario1 = samples.sort_values('Portfolio Estimated Return',ascending=0).iloc[:3,:]
+    downScenario1 = samples.sort_values('Portfolio Estimated Return',ascending=1).iloc[:3,:]
+   
+    return upScenario,downScenario,upScenario1,downScenario1
     
