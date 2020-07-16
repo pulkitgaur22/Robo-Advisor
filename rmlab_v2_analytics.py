@@ -464,7 +464,6 @@ sns.set()
 metricsCalculator.nvCalculator(portfolioValue,len(portfolioValue)-1,equityTickers,creditTickers,altsTickers,tickerEqNamesUS,tickerEqNamesCAD,tickerCreditNamesUSD,tickerCreditNamesCAD,tickerAltsNamesUSD,tickerAltsNamesCAD)
 
 
-
 plt.style.use("ggplot")
 #Exposure Plots
 exposure = metricsCalculator.getExposure(portfolioValue,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD,tickerHedge,tickerHedgeCAD,'2020-06-01')
@@ -473,8 +472,6 @@ plt.title("Exposures",fontsize=25)
 plt.show()
 sns.set()
 
-
-sns.set()
 #Return Attribution
 print ()
 colors=["#376e87","#8db5bf","#004c6d","#6191a3","#badade","#eaffff","#F8FCFE"]
@@ -487,7 +484,6 @@ df.columns=["Return Attribution"]
 df["Return Attribution"].plot.pie(autopct='%.2f',colors=colors, fontsize=15, figsize=(12, 12))
 plt.title("Return Attribution",fontsize=25)
 plt.show()
-
 
 
 #Risk Attribution

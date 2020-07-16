@@ -2,10 +2,8 @@
 
 
 from pandas_datareader import data as pdr
-# ! pip install quantstats --upgrade --no-cache-dir
 import quantstats as qs
 import strategies
-#import fix_yahoo_finance as yf
 import yfinance as yf
 from tqdm import tqdm
 from datetime import datetime
