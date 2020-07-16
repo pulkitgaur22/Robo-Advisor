@@ -3,7 +3,7 @@
 
 This code is written for the course MMF 2025 - Risk Management Laboratory
 by Dr. Dan Rosen. 
-Robo Advisor
+United All Weather Robo Advisor
 '''
 ########################################################################
 
@@ -649,6 +649,120 @@ fig.tight_layout()
 plt.show()
 
 
+
+#10 day VaR
+returns = [rtnBreakDown[0], rtnBreakDown[1], rtnBreakDown[2], rtnBreakDownCAD[0], rtnBreakDownCAD[1], rtnBreakDownCAD[2]]
+name = ['EQ_USD', 'CR_USD', 'Alt_USD', 'EQ_CAD', 'CR_CAD', 'Alt_CAD']
+returns = pd.DataFrame(returns).T.dropna()
+returns.columns = name
+
+monthlyReturns = (returns+1).resample('10d').prod()-1
+FF5 = pd.read_csv('Data/F-F_Research_Data_5_Factors_2x3_daily.CSV')
+FF5.columns = ['Date']+list(FF5.columns[1:])
+FF5.Date = FF5.Date.apply(lambda x:str(x))
+FF5.Date = FF5.Date.apply(lambda x:x[0:4]+'-'+x[4:6]+'-'+x[6:])
+FF5.Date = pd.to_datetime(FF5.Date)
+
+FF5.set_index('Date',inplace=True)
+FF5 = (FF5+1).resample('10d').prod()-1
+FF = FF5.loc['2010-10-01':]
+FF.index = monthlyReturns.index
+
+
+df = monthlyReturns.join(FF).dropna()
+df[monthlyReturns.columns] = df[monthlyReturns.columns].sub(FF['RF'],axis=0)
+
+X=df[FF.columns[:-1]]
+X = sm.add_constant(X)
+betaList = []
+
+for i in range(monthlyReturns.shape[1]):
+    Y=df.iloc[:,i]
+    model = sm.OLS(Y, X).fit()
+    betaList.append(model.params)
+    
+betaList = pd.DataFrame(betaList).T
+betaList.columns = monthlyReturns.columns
+
+Hedge = portfolioValue[HedgeTicker].pct_change().replace([np.inf, -np.inf], np.nan).dropna()
+Hedge = Hedge.replace([0,-1],np.nan).dropna()
+Hedge = (Hedge+1).resample('10d').prod()-1
+Hedge.index = FF.loc['2015-07-20':'2020-02-15'].index
+df2 = Hedge.join(FF.loc['2015-07-20':'2020-02-15'])
+df2[Hedge.columns] = df2[Hedge.columns].sub(FF['RF'],axis=0)
+X=df2[FF5.columns[:-1]]
+X = sm.add_constant(X)
+betaList2 = []
+
+for i in range(Hedge.shape[1]):
+    Y=df2.iloc[:,i]
+    model = sm.OLS(Y, X).fit()
+    betaList2.append(model.params)
+    
+betaList2 = pd.DataFrame(betaList2).T
+betaList2.columns = Hedge.columns
+
+betaList = betaList.join(betaList2)
+
+subprimeRecession_99 = stressVaR('2008-01','2009-06',0.99)
+subprimeRecession_95 = stressVaR('2008-01','2009-06',0.95)
+subprimeRecession_90 = stressVaR('2008-01','2009-06',0.90)
+
+# 2001 tech bubble
+techBubble_99 = stressVaR('2000-03','2002-09',0.99)
+techBubble_95 = stressVaR('2000-03','2002-09',0.95)
+techBubble_90 = stressVaR('2000-03','2002-09',0.90)
+# 911
+sellOff911_99 = stressVaR('2001-07','2001-09',0.99)
+sellOff911_95 = stressVaR('2001-07','2001-09',0.95)
+sellOff911_90 = stressVaR('2001-07','2001-09',0.90)
+
+# Asian crisis
+AsianCrisis_99 = stressVaR('1998-04','1998-10',0.99)
+AsianCrisis_95 = stressVaR('1998-04','1998-10',0.95)
+AsianCrisis_90 = stressVaR('1998-04','1998-10',0.90)
+
+# Summer 2011
+Summer2011_99 = stressVaR('2011-06','2011-10',0.99)
+Summer2011_95 = stressVaR('2011-06','2011-10',0.95)
+Summer2011_90 = stressVaR('2011-06','2011-10',0.90)
+
+# 2015-2016 growth scare
+growthScare_99 = stressVaR('2015-06','2016-1',0.99)
+growthScare_95 = stressVaR('2015-06','2016-1',0.95)
+growthScare_90 = stressVaR('2015-06','2016-1',0.90)
+
+
+
+labels = ['Asian crisis', '2001 tech bubble', '911 sell out', 'Subprime crisis', 'Summer2011', 'Growth scare']
+VaR_90 = [AsianCrisis_90, techBubble_90, sellOff911_90, subprimeRecession_90, Summer2011_90, growthScare_90]
+VaR_95 = [AsianCrisis_95, techBubble_95, sellOff911_95, subprimeRecession_95, Summer2011_95, growthScare_95]
+VaR_99 = [AsianCrisis_99, techBubble_99, sellOff911_99, subprimeRecession_99, Summer2011_99, growthScare_99]
+VaR_90 = [100*VaR_90[i][0] for i in range(len(VaR_90))]
+VaR_95 = [100*VaR_95[i][0] for i in range(len(VaR_95))]
+VaR_99 = [100*VaR_99[i][0] for i in range(len(VaR_99))]
+
+x = np.arange(len(labels))  # the label locations
+width = 0.2  # the width of the bars
+
+
+
+fig, ax = plt.subplots(figsize=(10,10))
+rects1 = ax.bar(x - width/2, VaR_90, width, label='90% VaR')
+rects2 = ax.bar(x + width/2, VaR_95, width, label='95% VaR')
+rects2 = ax.bar(x + width*1.5, VaR_99, width, label='99% VaR')
+
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_ylabel('VaR Returns (%)')
+ax.set_title('Stress 10-day Value at Risk')
+ax.set_xticks(x)
+ax.set_xticklabels(labels)
+ax.legend()
+
+
+fig.tight_layout()
+
+plt.show()
 
 
 

@@ -71,8 +71,6 @@ def get_stats(portfolioValue,rebalancing):
     print("99% 10 day CVaR/ES :", round(CVaR_n*100,2),"% or", round(valueV),"$")
     
     
-    
-    
     #Period Wise Return Calcualtion
     print ()
     print ("Returns -Period Wise")
@@ -94,8 +92,8 @@ def get_stats(portfolioValue,rebalancing):
     print ("Time Weighted Return:", (np.prod(np.add(returnsforTWR,1))-1)*100)
 
     
-def portfolioGraphsandStats(data):
-    qs.reports.full(data)
+def portfolioGraphsandStats(returns):
+    qs.reports.full(returns)
 
 
 def usdcadExposures(portfolioValue):
@@ -266,10 +264,7 @@ def getReturn(PortfolioValue,rebalancing,date='2020-06-01'):
     riskReturns = PortfolioValue['Return_temp'].fillna(method='ffill')
     return riskReturns.loc[:date]
 
-###This was just to see the comovement of Equity US and CAD
-# getReturn(portfolioValue,date='2020-06-01')
-# plt.plot(portfolioValue.index,portfolioValue[tickerEquity].sum(axis=1))
-# plt.plot(portfolioValue.index,portfolioValue[tickerEquityCAD].sum(axis=1))
+
     
 def getReturnAttribution(portfolioValue,rebalancing,tickerEquity,tickerEquityCAD,tickerCredit,tickerCreditCAD,tickerAlts,tickerAltsCAD):
     portValue=portfolioValue.copy()
